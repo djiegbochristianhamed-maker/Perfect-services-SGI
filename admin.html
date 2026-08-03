@@ -193,6 +193,7 @@
     <div class="nav-item active" data-page="dashboard">📊 Tableau de bord</div>
     <div class="nav-item" data-page="nouvelle">➕ Nouvelle intervention</div>
     <div class="nav-item" data-page="clients">👥 Clients</div>
+    <div class="nav-item" data-page="techniciens">🛠️ Techniciens</div>
   </nav>
   <div class="footer-user">
     <div class="avatar">N</div>
@@ -223,7 +224,7 @@
       <h3>Interventions récentes</h3>
       <table id="table-interventions">
         <thead>
-          <tr><th>N°</th><th>Client</th><th>Prestation</th><th>Date</th><th>Montant</th><th>Statut</th></tr>
+          <tr><th>N°</th><th>Client</th><th>Prestation</th><th>Technicien</th><th>Date</th><th>Montant</th><th>Statut</th></tr>
         </thead>
         <tbody id="tbody-interventions">
           <tr><td colspan="6" class="empty">Chargement...</td></tr>
@@ -282,6 +283,14 @@
       <div id="annex-list"></div>
       <button class="add-annex-btn" onclick="addAnnexRow()">+ Ajouter un travail annexe</button>
 
+      <div class="section-title">Assignation</div>
+      <div class="field">
+        <label>Technicien assigné</label>
+        <select id="in-technicien">
+          <option value="">— Choisir un technicien —</option>
+        </select>
+      </div>
+
       <div class="section-title">Notes internes</div>
       <div class="field">
         <label>Non visibles par le client</label>
@@ -313,10 +322,37 @@
     </div>
   </div>
 
+  <!-- PAGE TECHNICIENS -->
+  <div class="page" id="page-techniciens">
+    <div class="page-header"><h1>Techniciens</h1></div>
+
+    <div class="card">
+      <h3>Ajouter un technicien</h3>
+      <div class="form-grid">
+        <div class="field"><label>Nom complet</label><input type="text" id="tech-nom" placeholder="Ex: Yao Koffi"></div>
+        <div class="field"><label>Téléphone</label><input type="text" id="tech-tel" placeholder="Ex: 0709123456"></div>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label>Code PIN (4 chiffres, pour sa connexion)</label><input type="text" id="tech-pin" maxlength="4" placeholder="Ex: 1234"></div>
+        <div class="field"><label>Taux de commission (%)</label><input type="number" id="tech-commission" placeholder="Ex: 15" value="15"></div>
+      </div>
+      <div class="field" style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+        <input type="checkbox" id="tech-encaissement" style="width:auto;">
+        <label style="margin:0;">Autorisé à encaisser le solde directement chez le client</label>
+      </div>
+      <button class="btn" style="margin-top:14px;" onclick="ajouterTechnicien()">Ajouter le technicien</button>
+    </div>
+
+    <div class="card">
+      <h3>Équipe actuelle</h3>
+      <div id="techniciens-list"><div class="empty">Chargement...</div></div>
+    </div>
+  </div>
+
 </div>
 
 <script type="module">
-import { db, collection, addDoc, getDocs, query, orderBy, onSnapshot, updateDoc, doc, serverTimestamp } from "./firebase-config.js";
+import { db, collection, addDoc, getDocs, query, orderBy, onSnapshot, updateDoc, deleteDoc, doc, serverTimestamp } from "./firebase-config.js";
 
 // ---------- NAVIGATION ----------
 window.goTo = function(pageId){
@@ -401,6 +437,8 @@ window.creerIntervention = async function(){
   const prestationPrecision = document.getElementById('in-prestation-precision').value.trim();
   const notes = document.getElementById('in-notes').value.trim();
   const annexes = getAnnexes();
+  const technicienVal = document.getElementById('in-technicien').value;
+  const [technicienId, technicienNom] = technicienVal ? technicienVal.split('|') : [null, null];
 
   if(!nom || !tel || !dateRdv || !heureRdv){
     alert("Merci de remplir au minimum : nom, téléphone, date et heure du rendez-vous.");
@@ -428,6 +466,8 @@ window.creerIntervention = async function(){
     solde,
     dateRdv,
     heureRdv,
+    technicienId,
+    technicienNom,
     statut: "en_attente_confirmation",
     notesInternes: notes,
     soldeEncaisse: false,
@@ -445,9 +485,24 @@ window.creerIntervention = async function(){
 
   const box = document.getElementById('result-link');
   box.style.display = 'block';
+  let technicienHtml = '';
+  if(technicienId){
+    // Récupérer le téléphone du technicien pour lui envoyer une notif WhatsApp
+    const techSnap = await getDocs(query(collection(db, "techniciens")));
+    let techTel = '';
+    techSnap.forEach(d => { if(d.id === technicienId) techTel = d.data().tel; });
+    if(techTel){
+      const msgTech = encodeURIComponent(
+        `Nouvelle intervention assignée : ${numero}\nClient: ${nom}\nPrestation: ${prestationNom}\nDate: ${dateRdv} à ${heureRdv}\nAdresse: ${adresse}`
+      );
+      const telTechClean = techTel.replace(/[^0-9]/g,'');
+      const lienWaTech = `https://wa.me/225${telTechClean}?text=${msgTech}`;
+      technicienHtml = `<br><br><a href="${lienWaTech}" target="_blank" style="color:#f0d878; font-weight:600;">→ Notifier ${technicienNom} via WhatsApp</a>`;
+    }
+  }
   box.innerHTML = `✅ Dossier ${numero} créé avec succès.<br><br>
     <strong>Lien de confirmation :</strong><br>${lienConfirmation}<br><br>
-    <a href="${lienWhatsapp}" target="_blank" style="color:#f0d878; font-weight:600;">→ Envoyer au client via WhatsApp</a>`;
+    <a href="${lienWhatsapp}" target="_blank" style="color:#f0d878; font-weight:600;">→ Envoyer au client via WhatsApp</a>${technicienHtml}`;
 
   resetFormFields();
 };
@@ -464,6 +519,7 @@ function resetFormFields(){
   document.getElementById('wrap-prestation-nom').style.display = 'none';
   document.getElementById('in-prestation-type').value = 'Installation TNT';
   document.getElementById('in-prestation-prix').value = '';
+  document.getElementById('in-technicien').value = '';
   document.getElementById('annex-list').innerHTML = '';
   updateTotals();
 }
@@ -510,13 +566,14 @@ onSnapshot(qInterventions, async (snap)=>{
   // Table
   const tbody = document.getElementById('tbody-interventions');
   if(interventions.length === 0){
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Aucune intervention pour le moment.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucune intervention pour le moment.</td></tr>';
   } else {
     tbody.innerHTML = interventions.slice(0,15).map(i => `
       <tr>
         <td>${i.numero || '—'}</td>
         <td>${i.clientNom || '—'}</td>
         <td>${i.prestationNom || '—'}</td>
+        <td>${i.technicienNom || '<span style="color:var(--text-faint);">Non assigné</span>'}</td>
         <td>${i.dateRdv || '—'} ${i.heureRdv || ''}</td>
         <td>${(i.montantTotal||0).toLocaleString('fr-FR')} FCFA</td>
         <td><span class="badge ${i.statut}">${labelStatut(i.statut)}</span></td>
@@ -561,6 +618,75 @@ function labelStatut(s){
   };
   return map[s] || s;
 }
+
+// ---------- GESTION DES TECHNICIENS ----------
+window.ajouterTechnicien = async function(){
+  const nom = document.getElementById('tech-nom').value.trim();
+  const tel = document.getElementById('tech-tel').value.trim();
+  const pin = document.getElementById('tech-pin').value.trim();
+  const commission = parseFloat(document.getElementById('tech-commission').value) || 0;
+  const encaissement = document.getElementById('tech-encaissement').checked;
+
+  if(!nom || !tel || pin.length !== 4){
+    alert("Merci de remplir le nom, le téléphone, et un code PIN à 4 chiffres.");
+    return;
+  }
+
+  await addDoc(collection(db, "techniciens"), {
+    nom, tel, pin, commission, encaissement,
+    actif: true,
+    createdAt: serverTimestamp()
+  });
+
+  document.getElementById('tech-nom').value = '';
+  document.getElementById('tech-tel').value = '';
+  document.getElementById('tech-pin').value = '';
+  document.getElementById('tech-commission').value = 15;
+  document.getElementById('tech-encaissement').checked = false;
+};
+
+window.toggleTechnicienActif = async function(id, actif){
+  await updateDoc(doc(db, "techniciens", id), { actif: !actif });
+};
+
+window.supprimerTechnicien = async function(id){
+  if(confirm("Supprimer définitivement ce technicien ?")){
+    await deleteDoc(doc(db, "techniciens", id));
+  }
+};
+
+const qTechniciens = query(collection(db, "techniciens"), orderBy("createdAt", "desc"));
+onSnapshot(qTechniciens, (snap)=>{
+  const techniciens = [];
+  snap.forEach(d => techniciens.push({ id: d.id, ...d.data() }));
+
+  // Liste admin
+  const list = document.getElementById('techniciens-list');
+  if(techniciens.length === 0){
+    list.innerHTML = '<div class="empty">Aucun technicien ajouté pour le moment.</div>';
+  } else {
+    list.innerHTML = techniciens.map(t => `
+      <div class="client-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div>
+          <div class="name">${t.nom} ${t.actif ? '' : '<span style="color:var(--red); font-size:11px;">(désactivé)</span>'}</div>
+          <div class="meta">${t.tel} · Commission ${t.commission}% · PIN ${t.pin} · ${t.encaissement ? '💰 Autorisé à encaisser' : '🚫 Encaissement non autorisé'}</div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-outline" style="padding:7px 12px; font-size:12px;" onclick="toggleTechnicienActif('${t.id}', ${t.actif})">${t.actif ? 'Désactiver' : 'Activer'}</button>
+          <button class="btn btn-outline" style="padding:7px 12px; font-size:12px; color:var(--red); border-color:var(--red);" onclick="supprimerTechnicien('${t.id}')">Supprimer</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Menu déroulant dans "Nouvelle intervention" (uniquement techniciens actifs)
+  const select = document.getElementById('in-technicien');
+  const current = select.value;
+  select.innerHTML = '<option value="">— Choisir un technicien —</option>' +
+    techniciens.filter(t=>t.actif).map(t => `<option value="${t.id}|${t.nom}">${t.nom}</option>`).join('');
+  select.value = current;
+});
+
 </script>
 </body>
 </html>

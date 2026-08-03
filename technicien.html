@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perfect Services - Espace Technicien</title>
+<style>
+  :root{
+    --bg:#0d0d0d;
+    --bg-card:#161616;
+    --bg-card-2:#1e1e1e;
+    --border:#2a2a2a;
+    --gold:#d4af37;
+    --gold-soft:#f0d878;
+    --green:#2e7d4f;
+    --green-bg:#123420;
+    --orange:#c8791a;
+    --orange-bg:#3a2610;
+    --red:#b23a3a;
+    --red-bg:#3a1414;
+    --text:#f2f2f2;
+    --text-dim:#9a9a9a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Segoe UI', Roboto, Arial, sans-serif;
+    background:var(--bg); color:var(--text);
+    min-height:100vh;
+    display:flex; justify-content:center;
+  }
+  .wrap{ width:100%; max-width:480px; padding:20px 16px; }
+  .header{ display:flex; align-items:center; gap:10px; margin-bottom:24px; justify-content:space-between; }
+  .header-left{ display:flex; align-items:center; gap:10px; }
+  .logo-circle{
+    width:40px; height:40px; border-radius:50%; border:2px solid var(--gold);
+    display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--gold);
+    background:radial-gradient(circle at 30% 30%, #2a2210, #0a0a0a); flex-shrink:0;
+  }
+  .header h2{ font-size:15px; }
+  .header .sub{ font-size:11px; color:var(--text-dim); }
+  .logout{ font-size:12px; color:var(--text-dim); cursor:pointer; text-decoration:underline; }
+
+  .card{
+    background:var(--bg-card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px;
+  }
+  label{ font-size:12px; color:var(--text-dim); display:block; margin-bottom:6px; }
+  input, textarea{
+    width:100%; background:var(--bg-card-2); border:1px solid var(--border); color:var(--text);
+    padding:12px; border-radius:8px; font-size:15px; font-family:inherit; margin-bottom:14px;
+  }
+  input:focus, textarea:focus{ outline:none; border-color:var(--gold); }
+  .btn{
+    width:100%; background:var(--gold); color:#111; border:none; padding:14px;
+    border-radius:10px; font-weight:700; font-size:15px; cursor:pointer;
+  }
+  .btn:hover{ background:var(--gold-soft); }
+  .btn-outline{ background:transparent; border:1px solid var(--border); color:var(--text-dim); }
+  .login-title{ text-align:center; margin-bottom:20px; }
+  .login-title h1{ font-size:18px; margin-bottom:4px; }
+  .login-title p{ font-size:12px; color:var(--text-dim); }
+  .error-msg{ color:#f07070; font-size:13px; text-align:center; margin-top:10px; display:none; }
+
+  .inter-card{
+    background:var(--bg-card-2); border:1px solid var(--border); border-radius:12px;
+    padding:14px; margin-bottom:12px; cursor:pointer;
+  }
+  .inter-card:hover{ border-color:var(--gold); }
+  .inter-card .top{ display:flex; justify-content:space-between; margin-bottom:6px; }
+  .inter-card .num{ font-weight:700; font-size:13px; }
+  .inter-card .client{ font-size:14px; font-weight:600; margin-bottom:2px; }
+  .inter-card .meta{ font-size:12px; color:var(--text-dim); }
+  .badge{ padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600; }
+  .badge.confirmee{ background:var(--green-bg); color:#5fd68a; }
+  .badge.en_attente_confirmation{ background:var(--orange-bg); color:#f0a94e; }
+  .badge.annulee, .badge.reportee{ background:var(--red-bg); color:#f07070; }
+  .badge.terminee, .badge.payee{ background:#1e2a3a; color:#7ab8f0; }
+  .empty{ text-align:center; color:#666; padding:30px; font-size:13px; }
+
+  .material-row{ display:flex; gap:8px; margin-bottom:8px; }
+  .material-row input{ margin-bottom:0; }
+  .material-row button{
+    background:var(--red-bg); color:#f07070; border:none; border-radius:6px;
+    width:38px; flex-shrink:0; cursor:pointer;
+  }
+  .add-material-btn{
+    background:transparent; border:1px dashed var(--border); color:var(--text-dim);
+    padding:10px; border-radius:8px; cursor:pointer; width:100%; font-size:13px; margin-bottom:14px;
+  }
+  .checkbox-row{ display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .checkbox-row input{ width:auto; margin:0; }
+  .back-link{ font-size:13px; color:var(--gold); cursor:pointer; margin-bottom:14px; display:inline-block; }
+  .detail-row{ display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #222; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ECRAN CONNEXION -->
+  <div id="screen-login">
+    <div class="login-title">
+      <div class="logo-circle" style="margin:0 auto 14px auto;">P</div>
+      <h1>Espace Technicien</h1>
+      <p>Perfect Services SGI</p>
+    </div>
+    <div class="card">
+      <label>Numéro de téléphone</label>
+      <input type="text" id="login-tel" placeholder="Ex: 0709123456">
+      <label>Code PIN (4 chiffres)</label>
+      <input type="password" id="login-pin" maxlength="4" placeholder="••••">
+      <button class="btn" onclick="seConnecter()">Se connecter</button>
+      <div class="error-msg" id="login-error">Numéro ou code PIN incorrect.</div>
+    </div>
+  </div>
+
+  <!-- ECRAN LISTE INTERVENTIONS -->
+  <div id="screen-liste" style="display:none;">
+    <div class="header">
+      <div class="header-left">
+        <div class="logo-circle">P</div>
+        <div>
+          <h2 id="tech-nom-affiche">—</h2>
+          <div class="sub">Mes interventions</div>
+        </div>
+      </div>
+      <div class="logout" onclick="seDeconnecter()">Déconnexion</div>
+    </div>
+    <div id="liste-interventions"><div class="empty">Chargement...</div></div>
+  </div>
+
+  <!-- ECRAN DETAIL / COMPTE-RENDU -->
+  <div id="screen-detail" style="display:none;">
+    <span class="back-link" onclick="retourListe()">← Retour à mes interventions</span>
+    <div class="card" id="detail-content"></div>
+  </div>
+
+</div>
+
+<script type="module">
+import { db, collection, query, where, getDocs, doc, updateDoc, onSnapshot } from "./firebase-config.js";
+
+let currentTech = JSON.parse(localStorage.getItem('sgi_technicien') || 'null');
+let currentIntervention = null;
+
+function afficherEcran(id){
+  ['screen-login','screen-liste','screen-detail'].forEach(s=>{
+    document.getElementById(s).style.display = (s === id) ? 'block' : 'none';
+  });
+}
+
+window.seConnecter = async function(){
+  const tel = document.getElementById('login-tel').value.trim();
+  const pin = document.getElementById('login-pin').value.trim();
+  const errorMsg = document.getElementById('login-error');
+  errorMsg.style.display = 'none';
+
+  if(!tel || pin.length !== 4){
+    errorMsg.textContent = 'Merci de saisir ton numéro et un code PIN à 4 chiffres.';
+    errorMsg.style.display = 'block';
+    return;
+  }
+
+  const q = query(collection(db, "techniciens"), where("tel", "==", tel), where("pin", "==", pin));
+  const snap = await getDocs(q);
+
+  if(snap.empty){
+    errorMsg.textContent = 'Numéro ou code PIN incorrect.';
+    errorMsg.style.display = 'block';
+    return;
+  }
+
+  let techData = null;
+  snap.forEach(d => techData = { id: d.id, ...d.data() });
+
+  if(techData.actif === false){
+    errorMsg.textContent = 'Ton compte a été désactivé. Contacte l\'administrateur.';
+    errorMsg.style.display = 'block';
+    return;
+  }
+
+  currentTech = techData;
+  localStorage.setItem('sgi_technicien', JSON.stringify(techData));
+  demarrerEspaceTechnicien();
+};
+
+window.seDeconnecter = function(){
+  localStorage.removeItem('sgi_technicien');
+  currentTech = null;
+  afficherEcran('screen-login');
+};
+
+function labelStatut(s){
+  const map = {
+    en_attente_confirmation: "En attente confirmation",
+    confirmee: "Confirmée — à réaliser",
+    reportee: "Reportée",
+    annulee: "Annulée",
+    terminee: "Terminée",
+    payee: "Terminée & payée"
+  };
+  return map[s] || s;
+}
+
+function demarrerEspaceTechnicien(){
+  document.getElementById('tech-nom-affiche').textContent = currentTech.nom;
+  afficherEcran('screen-liste');
+
+  const q = query(collection(db, "interventions"), where("technicienId", "==", currentTech.id));
+  onSnapshot(q, (snap)=>{
+    const interventions = [];
+    snap.forEach(d => interventions.push({ id: d.id, ...d.data() }));
+    interventions.sort((a,b)=> (a.dateRdv||'').localeCompare(b.dateRdv||''));
+
+    const list = document.getElementById('liste-interventions');
+    // On ne montre pas les annulées tout en bas, mais on les garde visibles pour info
+    if(interventions.length === 0){
+      list.innerHTML = '<div class="empty">Aucune intervention assignée pour le moment.</div>';
+      return;
+    }
+    list.innerHTML = interventions.map(i => `
+      <div class="inter-card" onclick="ouvrirDetail('${i.id}')">
+        <div class="top">
+          <span class="num">${i.numero}</span>
+          <span class="badge ${i.statut}">${labelStatut(i.statut)}</span>
+        </div>
+        <div class="client">${i.clientNom}</div>
+        <div class="meta">${i.prestationNom} · ${i.dateRdv} à ${i.heureRdv}</div>
+        <div class="meta">📍 ${i.clientAdresse || 'Adresse non précisée'}</div>
+      </div>
+    `).join('');
+  });
+}
+
+window.ouvrirDetail = async function(id){
+  const snap = await getDocs(query(collection(db, "interventions"), where("__name__", "==", id)));
+  let data = null;
+  snap.forEach(d => data = { id: d.id, ...d.data() });
+  if(!data) return;
+  currentIntervention = data;
+  afficherDetail(data);
+  afficherEcran('screen-detail');
+};
+
+window.retourListe = function(){
+  afficherEcran('screen-liste');
+};
+
+let materialCount = 0;
+window.addMaterialRow = function(){
+  materialCount++;
+  const row = document.createElement('div');
+  row.className = 'material-row';
+  row.id = 'material-' + materialCount;
+  row.innerHTML = `<input type="text" placeholder="Ex: Câble RG6 20m" class="material-nom"><button type="button" onclick="document.getElementById('material-${materialCount}').remove()">✕</button>`;
+  document.getElementById('materials-list').appendChild(row);
+};
+
+function afficherDetail(data){
+  const dejaTermine = ['terminee','payee'].includes(data.statut);
+  const annexes = data.travauxAnnexes || [];
+
+  let annexesHtml = '';
+  if(annexes.length > 0){
+    annexesHtml = annexes.map(a => `<div class="detail-row"><span>${a.nom}</span><span>${a.prix.toLocaleString('fr-FR')} FCFA</span></div>`).join('');
+  } else {
+    annexesHtml = '<div class="detail-row"><span style="color:#666;">Aucun travaux annexe</span><span></span></div>';
+  }
+
+  let encaissementHtml = '';
+  if(currentTech.encaissement){
+    encaissementHtml = `
+      <div class="checkbox-row">
+        <input type="checkbox" id="cr-encaisse">
+        <label style="margin:0;">J'ai encaissé le solde (${(data.solde||0).toLocaleString('fr-FR')} FCFA) chez le client</label>
+      </div>
+    `;
+  } else {
+    encaissementHtml = `<p style="font-size:12px; color:var(--text-dim); margin-bottom:14px;">💡 Tu n'es pas autorisé à encaisser — le solde sera géré directement par l'administrateur.</p>`;
+  }
+
+  document.getElementById('detail-content').innerHTML = `
+    <div style="margin-bottom:16px;">
+      <div style="font-weight:700; font-size:16px; margin-bottom:2px;">${data.numero}</div>
+      <span class="badge ${data.statut}">${labelStatut(data.statut)}</span>
+    </div>
+    <div class="detail-row"><span>Client</span><span>${data.clientNom}</span></div>
+    <div class="detail-row"><span>Téléphone</span><span>${data.clientTel}</span></div>
+    <div class="detail-row"><span>Adresse</span><span style="text-align:right;">${data.clientAdresse || '—'}</span></div>
+    <div class="detail-row"><span>Prestation</span><span>${data.prestationNom}</span></div>
+    ${data.prestationPrecision ? `<div class="detail-row"><span>Précision</span><span style="text-align:right;">${data.prestationPrecision}</span></div>` : ''}
+    <div class="detail-row"><span>Date / Heure</span><span>${data.dateRdv} à ${data.heureRdv}</span></div>
+    <div style="margin:12px 0 4px 0; font-weight:600; font-size:13px; color:var(--gold);">Travaux annexes</div>
+    ${annexesHtml}
+    <div class="detail-row" style="font-weight:700; color:var(--gold); font-size:15px; margin-top:8px;"><span>Montant total</span><span>${(data.montantTotal||0).toLocaleString('fr-FR')} FCFA</span></div>
+    <div class="detail-row"><span>Solde restant</span><span>${(data.solde||0).toLocaleString('fr-FR')} FCFA</span></div>
+
+    ${dejaTermine ? `
+      <div style="margin-top:20px; padding:14px; background:var(--green-bg); border-radius:10px; text-align:center; color:#5fd68a; font-size:13px;">
+        ✅ Cette intervention est déjà clôturée.
+      </div>
+    ` : `
+      <div style="margin:20px 0 10px 0; font-weight:600; font-size:13px; color:var(--gold);">Compte-rendu d'intervention</div>
+      <label>Matériaux utilisés</label>
+      <div id="materials-list"></div>
+      <button type="button" class="add-material-btn" onclick="addMaterialRow()">+ Ajouter un matériau utilisé</button>
+      <label>Remarques (optionnel)</label>
+      <textarea id="cr-remarques" rows="2" placeholder="Ex: RAS, intervention sans difficulté"></textarea>
+      ${encaissementHtml}
+      <button class="btn" onclick="terminerIntervention()">Marquer comme terminée</button>
+    `}
+  `;
+  materialCount = 0;
+}
+
+window.terminerIntervention = async function(){
+  const materiaux = [];
+  document.querySelectorAll('.material-nom').forEach(inp=>{
+    if(inp.value.trim()) materiaux.push(inp.value.trim());
+  });
+  const remarques = document.getElementById('cr-remarques').value.trim();
+  const encaisseCheckbox = document.getElementById('cr-encaisse');
+  const soldeEncaisse = encaisseCheckbox ? encaisseCheckbox.checked : false;
+
+  await updateDoc(doc(db, "interventions", currentIntervention.id), {
+    statut: soldeEncaisse ? "payee" : "terminee",
+    materiauxUtilises: materiaux,
+    remarquesTechnicien: remarques,
+    soldeEncaisse: soldeEncaisse,
+    termineAt: new Date().toISOString()
+  });
+
+  alert("Compte-rendu enregistré. Merci !");
+  afficherEcran('screen-liste');
+};
+
+// Démarrage : si déjà connecté (session sauvegardée), on saute direct à la liste
+if(currentTech){
+  demarrerEspaceTechnicien();
+} else {
+  afficherEcran('screen-login');
+}
+</script>
+</body>
+</html>
