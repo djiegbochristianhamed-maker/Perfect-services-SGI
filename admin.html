@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perfect Services SGI - Administration</title>
+<style>
+  :root{
+    --bg:#0d0d0d;
+    --bg-card:#161616;
+    --bg-card-2:#1e1e1e;
+    --border:#2a2a2a;
+    --gold:#d4af37;
+    --gold-soft:#f0d878;
+    --green:#2e7d4f;
+    --green-bg:#123420;
+    --orange:#c8791a;
+    --orange-bg:#3a2610;
+    --red:#b23a3a;
+    --red-bg:#3a1414;
+    --text:#f2f2f2;
+    --text-dim:#9a9a9a;
+    --text-faint:#666;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Segoe UI', Roboto, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    min-height:100vh;
+  }
+  /* Sidebar */
+  .sidebar{
+    width:230px;
+    background:#0a0a0a;
+    border-right:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    padding:24px 0;
+    flex-shrink:0;
+  }
+  .logo{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:0 20px 24px 20px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:16px;
+  }
+  .logo-circle{
+    width:44px; height:44px; border-radius:50%;
+    border:2px solid var(--gold);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:20px; color:var(--gold);
+    background:radial-gradient(circle at 30% 30%, #2a2210, #0a0a0a);
+    flex-shrink:0;
+  }
+  .logo-text{ line-height:1.1; }
+  .logo-text .brand{ font-weight:700; font-size:14px; letter-spacing:1px; }
+  .logo-text .sub{ font-size:10px; color:var(--gold); letter-spacing:2px; }
+  nav{ flex:1; padding:0 12px; }
+  .nav-item{
+    display:flex; align-items:center; gap:12px;
+    padding:11px 14px; margin-bottom:4px;
+    border-radius:8px; cursor:pointer;
+    color:var(--text-dim); font-size:14px;
+    transition:.15s;
+  }
+  .nav-item:hover{ background:#1a1a1a; color:var(--text); }
+  .nav-item.active{ background:var(--gold); color:#111; font-weight:600; }
+  .footer-user{
+    padding:16px 20px; border-top:1px solid var(--border);
+    display:flex; align-items:center; gap:10px; font-size:13px;
+  }
+  .avatar{
+    width:34px; height:34px; border-radius:50%;
+    background:#333; display:flex; align-items:center; justify-content:center;
+    font-weight:600; color:var(--gold); flex-shrink:0;
+  }
+  /* Main */
+  .main{ flex:1; padding:28px 32px; overflow-y:auto; }
+  .page{ display:none; }
+  .page.active{ display:block; }
+  .page-header{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:22px; flex-wrap:wrap; gap:12px;
+  }
+  .page-header h1{ font-size:22px; font-weight:700; }
+  .btn{
+    background:var(--gold); color:#111; border:none;
+    padding:11px 20px; border-radius:8px; font-weight:600;
+    cursor:pointer; font-size:14px; transition:.15s;
+  }
+  .btn:hover{ background:var(--gold-soft); }
+  .btn-outline{
+    background:transparent; color:var(--text-dim); border:1px solid var(--border);
+  }
+  .btn-outline:hover{ color:var(--text); border-color:var(--text-dim); }
+  .stats-row{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px;
+  }
+  .stat-card{
+    background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+    padding:18px;
+  }
+  .stat-card .label{ font-size:13px; color:var(--text-dim); margin-bottom:8px; }
+  .stat-card .value{ font-size:26px; font-weight:700; }
+  .stat-card.green .value{ color:var(--green); }
+  .stat-card.orange .value{ color:var(--orange); }
+  .stat-card.red .value{ color:var(--red); }
+  .card{
+    background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+    padding:20px; margin-bottom:20px;
+  }
+  .card h3{ font-size:15px; margin-bottom:14px; display:flex; justify-content:space-between; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th{ text-align:left; color:var(--text-dim); font-weight:500; padding:8px 10px; border-bottom:1px solid var(--border); }
+  td{ padding:10px; border-bottom:1px solid #1c1c1c; }
+  .badge{
+    padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; display:inline-block;
+  }
+  .badge.confirmee{ background:var(--green-bg); color:#5fd68a; }
+  .badge.en_attente_confirmation{ background:var(--orange-bg); color:#f0a94e; }
+  .badge.annulee, .badge.reportee{ background:var(--red-bg); color:#f07070; }
+  .badge.terminee{ background:#1e2a3a; color:#7ab8f0; }
+  .badge.payee{ background:var(--green-bg); color:#5fd68a; }
+  /* Form */
+  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .form-grid.full{ grid-template-columns:1fr; }
+  label{ font-size:12px; color:var(--text-dim); display:block; margin-bottom:6px; }
+  input, select, textarea{
+    width:100%; background:var(--bg-card-2); border:1px solid var(--border);
+    color:var(--text); padding:10px 12px; border-radius:8px; font-size:14px;
+    font-family:inherit;
+  }
+  input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--gold); }
+  .field{ margin-bottom:14px; }
+  .section-title{
+    color:var(--gold); font-size:12px; font-weight:700; letter-spacing:1px;
+    margin:20px 0 10px 0; text-transform:uppercase;
+  }
+  .annex-row{
+    display:flex; gap:10px; align-items:center; margin-bottom:8px;
+  }
+  .annex-row input[type=text]{ flex:2; }
+  .annex-row input[type=number]{ flex:1; }
+  .annex-row button{
+    background:var(--red-bg); color:#f07070; border:none; border-radius:6px;
+    width:34px; height:34px; cursor:pointer; font-size:16px; flex-shrink:0;
+  }
+  .add-annex-btn{
+    background:transparent; border:1px dashed var(--border); color:var(--text-dim);
+    padding:9px; border-radius:8px; cursor:pointer; width:100%; font-size:13px;
+  }
+  .add-annex-btn:hover{ border-color:var(--gold); color:var(--gold); }
+  .totals-box{
+    background:var(--bg-card-2); border:1px solid var(--border); border-radius:10px;
+    padding:16px; margin-top:16px;
+  }
+  .totals-row{ display:flex; justify-content:space-between; padding:4px 0; font-size:14px; }
+  .totals-row.final{ font-size:18px; font-weight:700; color:var(--gold); border-top:1px solid var(--border); margin-top:8px; padding-top:10px; }
+  .link-box{
+    background:var(--bg-card-2); border:1px solid var(--gold); border-radius:8px;
+    padding:12px; font-size:12px; word-break:break-all; color:var(--gold-soft);
+    margin-top:10px; display:none;
+  }
+  .empty{ color:var(--text-faint); text-align:center; padding:30px; font-size:13px; }
+  .client-card{
+    background:var(--bg-card-2); border:1px solid var(--border); border-radius:10px;
+    padding:16px; margin-bottom:10px;
+  }
+  .client-card .name{ font-weight:600; margin-bottom:4px; }
+  .client-card .meta{ font-size:12px; color:var(--text-dim); }
+  @media(max-width:900px){
+    .sidebar{ display:none; }
+    .stats-row{ grid-template-columns:repeat(2,1fr); }
+    .form-grid{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="logo">
+    <div class="logo-circle">P</div>
+    <div class="logo-text">
+      <div class="brand">PERFECT SERVICES</div>
+      <div class="sub">SGI</div>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-item active" data-page="dashboard">📊 Tableau de bord</div>
+    <div class="nav-item" data-page="nouvelle">➕ Nouvelle intervention</div>
+    <div class="nav-item" data-page="clients">👥 Clients</div>
+  </nav>
+  <div class="footer-user">
+    <div class="avatar">N</div>
+    <div>
+      <div style="font-weight:600;">Nerwaya</div>
+      <div style="color:var(--text-dim); font-size:11px;">Administrateur</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- PAGE DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-header">
+      <h1>Tableau de bord</h1>
+      <button class="btn" onclick="goTo('nouvelle')">+ Nouvelle intervention</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="label">Interventions (total)</div><div class="value" id="stat-total">0</div></div>
+      <div class="stat-card green"><div class="label">Confirmées</div><div class="value" id="stat-confirmees">0</div></div>
+      <div class="stat-card orange"><div class="label">En attente</div><div class="value" id="stat-attente">0</div></div>
+      <div class="stat-card red"><div class="label">Annulées</div><div class="value" id="stat-annulees">0</div></div>
+    </div>
+
+    <div class="card">
+      <h3>Interventions récentes</h3>
+      <table id="table-interventions">
+        <thead>
+          <tr><th>N°</th><th>Client</th><th>Prestation</th><th>Date</th><th>Montant</th><th>Statut</th></tr>
+        </thead>
+        <tbody id="tbody-interventions">
+          <tr><td colspan="6" class="empty">Chargement...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PAGE NOUVELLE INTERVENTION -->
+  <div class="page" id="page-nouvelle">
+    <div class="page-header">
+      <h1>Nouvelle intervention</h1>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Informations client</div>
+      <div class="form-grid">
+        <div class="field"><label>Nom complet</label><input type="text" id="in-nom" placeholder="Ex: Kouassi Jean"></div>
+        <div class="field"><label>Téléphone (WhatsApp)</label><input type="text" id="in-tel" placeholder="Ex: 0505742465"></div>
+      </div>
+      <div class="field"><label>Adresse / Quartier</label><input type="text" id="in-adresse" placeholder="Ex: Abobo N'Dotré, Carrefour 3"></div>
+
+      <div class="section-title">Rendez-vous</div>
+      <div class="form-grid">
+        <div class="field"><label>Date du rendez-vous</label><input type="date" id="in-date"></div>
+        <div class="field"><label>Heure du rendez-vous</label><input type="time" id="in-heure"></div>
+      </div>
+
+      <div class="section-title">Prestation</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Type de prestation</label>
+          <select id="in-prestation-type">
+            <option value="Installation TNT|8000">Installation TNT — 8 000 FCFA</option>
+            <option value="Canal+|10000">Canal+ — 10 000 FCFA</option>
+            <option value="Dépannage|5000">Dépannage — 5 000 FCFA</option>
+            <option value="Fixation TV|6000">Fixation TV — 6 000 FCFA</option>
+          </select>
+        </div>
+        <div class="field"><label>Prix prestation (FCFA)</label><input type="number" id="in-prestation-prix" value="8000"></div>
+      </div>
+
+      <div class="section-title">Travaux annexes (optionnel)</div>
+      <div id="annex-list"></div>
+      <button class="add-annex-btn" onclick="addAnnexRow()">+ Ajouter un travail annexe</button>
+
+      <div class="section-title">Notes internes</div>
+      <div class="field">
+        <label>Non visibles par le client</label>
+        <textarea id="in-notes" rows="2" placeholder="Ex: Client fidèle, 2ème intervention."></textarea>
+      </div>
+
+      <div class="totals-box">
+        <div class="totals-row"><span>Montant prestation</span><span id="tot-prestation">0 FCFA</span></div>
+        <div class="totals-row"><span>Travaux annexes</span><span id="tot-annexes">0 FCFA</span></div>
+        <div class="totals-row final"><span>Montant total convenu</span><span id="tot-total">0 FCFA</span></div>
+        <div class="totals-row"><span>Acompte requis (20%)</span><span id="tot-acompte">0 FCFA</span></div>
+        <div class="totals-row"><span>Solde à régler</span><span id="tot-solde">0 FCFA</span></div>
+      </div>
+
+      <div style="margin-top:18px; display:flex; gap:10px;">
+        <button class="btn" onclick="creerIntervention()">Créer le dossier</button>
+        <button class="btn btn-outline" onclick="resetForm()">Annuler</button>
+      </div>
+
+      <div class="link-box" id="result-link"></div>
+    </div>
+  </div>
+
+  <!-- PAGE CLIENTS -->
+  <div class="page" id="page-clients">
+    <div class="page-header"><h1>Clients</h1></div>
+    <div class="card">
+      <div id="clients-list"><div class="empty">Chargement...</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { db, collection, addDoc, getDocs, query, orderBy, onSnapshot, updateDoc, doc, serverTimestamp } from "./firebase-config.js";
+
+// ---------- NAVIGATION ----------
+window.goTo = function(pageId){
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + pageId));
+};
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click', ()=> goTo(item.dataset.page));
+});
+
+// ---------- TRAVAUX ANNEXES DYNAMIQUES ----------
+let annexCount = 0;
+window.addAnnexRow = function(){
+  annexCount++;
+  const row = document.createElement('div');
+  row.className = 'annex-row';
+  row.id = 'annex-' + annexCount;
+  row.innerHTML = `
+    <input type="text" placeholder="Ex: Passage de câble" class="annex-nom">
+    <input type="number" placeholder="Prix FCFA" class="annex-prix" value="0">
+    <button type="button" onclick="removeAnnexRow(${annexCount})">✕</button>
+  `;
+  document.getElementById('annex-list').appendChild(row);
+  row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotals));
+};
+window.removeAnnexRow = function(id){
+  document.getElementById('annex-' + id)?.remove();
+  updateTotals();
+};
+
+// Mise à jour auto du prix quand on change le type de prestation
+document.getElementById('in-prestation-type').addEventListener('change', function(){
+  const [nom, prix] = this.value.split('|');
+  document.getElementById('in-prestation-prix').value = prix;
+  updateTotals();
+});
+document.getElementById('in-prestation-prix').addEventListener('input', updateTotals);
+
+function getAnnexes(){
+  const rows = document.querySelectorAll('.annex-row');
+  const annexes = [];
+  rows.forEach(row=>{
+    const nom = row.querySelector('.annex-nom').value.trim();
+    const prix = parseFloat(row.querySelector('.annex-prix').value) || 0;
+    if(nom) annexes.push({nom, prix});
+  });
+  return annexes;
+}
+
+function updateTotals(){
+  const prestationPrix = parseFloat(document.getElementById('in-prestation-prix').value) || 0;
+  const annexes = getAnnexes();
+  const totalAnnexes = annexes.reduce((s,a)=> s + a.prix, 0);
+  const total = prestationPrix + totalAnnexes;
+  const acompte = Math.round(total * 0.2);
+  const solde = total - acompte;
+
+  document.getElementById('tot-prestation').textContent = prestationPrix.toLocaleString('fr-FR') + ' FCFA';
+  document.getElementById('tot-annexes').textContent = totalAnnexes.toLocaleString('fr-FR') + ' FCFA';
+  document.getElementById('tot-total').textContent = total.toLocaleString('fr-FR') + ' FCFA';
+  document.getElementById('tot-acompte').textContent = acompte.toLocaleString('fr-FR') + ' FCFA';
+  document.getElementById('tot-solde').textContent = solde.toLocaleString('fr-FR') + ' FCFA';
+}
+updateTotals();
+
+// ---------- CREATION INTERVENTION ----------
+window.creerIntervention = async function(){
+  const nom = document.getElementById('in-nom').value.trim();
+  const tel = document.getElementById('in-tel').value.trim();
+  const adresse = document.getElementById('in-adresse').value.trim();
+  const dateRdv = document.getElementById('in-date').value;
+  const heureRdv = document.getElementById('in-heure').value;
+  const [prestationNom] = document.getElementById('in-prestation-type').value.split('|');
+  const prestationPrix = parseFloat(document.getElementById('in-prestation-prix').value) || 0;
+  const notes = document.getElementById('in-notes').value.trim();
+  const annexes = getAnnexes();
+
+  if(!nom || !tel || !dateRdv || !heureRdv){
+    alert("Merci de remplir au minimum : nom, téléphone, date et heure du rendez-vous.");
+    return;
+  }
+
+  const totalAnnexes = annexes.reduce((s,a)=> s + a.prix, 0);
+  const montantTotal = prestationPrix + totalAnnexes;
+  const acompte = Math.round(montantTotal * 0.2);
+  const solde = montantTotal - acompte;
+
+  const numero = "PS-" + dateRdv.replace(/-/g,'').slice(2) + "-" + Math.floor(100 + Math.random()*900);
+
+  const docRef = await addDoc(collection(db, "interventions"), {
+    numero,
+    clientNom: nom,
+    clientTel: tel,
+    clientAdresse: adresse,
+    prestationNom,
+    prestationPrix,
+    travauxAnnexes: annexes,
+    montantTotal,
+    acompte,
+    solde,
+    dateRdv,
+    heureRdv,
+    statut: "en_attente_confirmation",
+    notesInternes: notes,
+    soldeEncaisse: false,
+    avis: null,
+    createdAt: serverTimestamp()
+  });
+
+  const baseUrl = window.location.href.replace(/admin\.html.*$/, '');
+  const lienConfirmation = baseUrl + "confirmation.html?id=" + docRef.id;
+  const messageWa = encodeURIComponent(
+    `Bonjour ${nom}. Votre intervention ${numero} (${prestationNom}) est prévue le ${dateRdv} à ${heureRdv}. Merci de confirmer ici : ${lienConfirmation}`
+  );
+  const telClean = tel.replace(/[^0-9]/g,'');
+  const lienWhatsapp = `https://wa.me/225${telClean}?text=${messageWa}`;
+
+  const box = document.getElementById('result-link');
+  box.style.display = 'block';
+  box.innerHTML = `✅ Dossier ${numero} créé avec succès.<br><br>
+    <strong>Lien de confirmation :</strong><br>${lienConfirmation}<br><br>
+    <a href="${lienWhatsapp}" target="_blank" style="color:#f0d878; font-weight:600;">→ Envoyer au client via WhatsApp</a>`;
+
+  resetFormFields();
+};
+
+function resetFormFields(){
+  document.getElementById('in-nom').value = '';
+  document.getElementById('in-tel').value = '';
+  document.getElementById('in-adresse').value = '';
+  document.getElementById('in-date').value = '';
+  document.getElementById('in-heure').value = '';
+  document.getElementById('in-notes').value = '';
+  document.getElementById('annex-list').innerHTML = '';
+  updateTotals();
+}
+window.resetForm = function(){
+  resetFormFields();
+  document.getElementById('result-link').style.display = 'none';
+};
+
+// ---------- REGLE : ANNULATION AUTO SI PAS DE CONFIRMATION AVANT 18H LA VEILLE ----------
+async function verifierAnnulationsAuto(interventions){
+  const maintenant = new Date();
+  for(const inter of interventions){
+    if(inter.statut !== 'en_attente_confirmation') continue;
+    if(!inter.dateRdv) continue;
+    const dateRdv = new Date(inter.dateRdv + 'T00:00:00');
+    const deadline = new Date(dateRdv);
+    deadline.setDate(deadline.getDate() - 1);
+    deadline.setHours(18,0,0,0);
+    if(maintenant > deadline){
+      await updateDoc(doc(db, "interventions", inter.id), { statut: "annulee", annuleeAuto: true });
+    }
+  }
+}
+
+// ---------- ECOUTE TEMPS REEL DASHBOARD ----------
+const qInterventions = query(collection(db, "interventions"), orderBy("createdAt", "desc"));
+onSnapshot(qInterventions, async (snap)=>{
+  const interventions = [];
+  snap.forEach(d => interventions.push({ id: d.id, ...d.data() }));
+
+  await verifierAnnulationsAuto(interventions);
+
+  // Stats
+  const total = interventions.length;
+  const confirmees = interventions.filter(i=>i.statut==='confirmee' || i.statut==='terminee' || i.statut==='payee').length;
+  const attente = interventions.filter(i=>i.statut==='en_attente_confirmation').length;
+  const annulees = interventions.filter(i=>i.statut==='annulee' || i.statut==='reportee').length;
+
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-confirmees').textContent = confirmees;
+  document.getElementById('stat-attente').textContent = attente;
+  document.getElementById('stat-annulees').textContent = annulees;
+
+  // Table
+  const tbody = document.getElementById('tbody-interventions');
+  if(interventions.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Aucune intervention pour le moment.</td></tr>';
+  } else {
+    tbody.innerHTML = interventions.slice(0,15).map(i => `
+      <tr>
+        <td>${i.numero || '—'}</td>
+        <td>${i.clientNom || '—'}</td>
+        <td>${i.prestationNom || '—'}</td>
+        <td>${i.dateRdv || '—'} ${i.heureRdv || ''}</td>
+        <td>${(i.montantTotal||0).toLocaleString('fr-FR')} FCFA</td>
+        <td><span class="badge ${i.statut}">${labelStatut(i.statut)}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  // Clients (dérivé des interventions, regroupé par téléphone)
+  const clientsMap = {};
+  interventions.forEach(i=>{
+    if(!i.clientTel) return;
+    if(!clientsMap[i.clientTel]){
+      clientsMap[i.clientTel] = { nom: i.clientNom, tel: i.clientTel, nb: 0, total: 0 };
+    }
+    clientsMap[i.clientTel].nb++;
+    if(i.statut === 'payee' || i.statut === 'terminee'){
+      clientsMap[i.clientTel].total += (i.montantTotal||0);
+    }
+  });
+  const clientsArr = Object.values(clientsMap).sort((a,b)=> b.nb - a.nb);
+  const clientsList = document.getElementById('clients-list');
+  if(clientsArr.length === 0){
+    clientsList.innerHTML = '<div class="empty">Aucun client pour le moment.</div>';
+  } else {
+    clientsList.innerHTML = clientsArr.map(c => `
+      <div class="client-card">
+        <div class="name">${c.nom} ${c.nb > 1 ? '⭐ Client fidèle' : ''}</div>
+        <div class="meta">${c.tel} · ${c.nb} intervention${c.nb>1?'s':''} · ${c.total.toLocaleString('fr-FR')} FCFA dépensés</div>
+      </div>
+    `).join('');
+  }
+});
+
+function labelStatut(s){
+  const map = {
+    en_attente_confirmation: "En attente",
+    confirmee: "Confirmée",
+    reportee: "Reportée",
+    annulee: "Annulée",
+    terminee: "Terminée",
+    payee: "Payée"
+  };
+  return map[s] || s;
+}
+</script>
+</body>
+</html>

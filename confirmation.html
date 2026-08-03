@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perfect Services - Confirmation de rendez-vous</title>
+<style>
+  :root{
+    --bg:#0d0d0d;
+    --gold:#d4af37;
+    --gold-soft:#f0d878;
+    --green:#1f8a4c;
+    --orange:#c8791a;
+    --red:#b23a3a;
+    --text:#f2f2f2;
+    --text-dim:#9a9a9a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Segoe UI', Roboto, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    display:flex; justify-content:center; align-items:flex-start;
+    min-height:100vh; padding:24px 16px;
+  }
+  .phone{
+    width:100%; max-width:400px;
+  }
+  .header{
+    display:flex; align-items:center; gap:10px; margin-bottom:20px;
+  }
+  .logo-circle{
+    width:40px; height:40px; border-radius:50%;
+    border:2px solid var(--gold);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:18px; color:var(--gold);
+    background:radial-gradient(circle at 30% 30%, #2a2210, #0a0a0a);
+    flex-shrink:0;
+  }
+  .header h2{ font-size:16px; font-weight:600; }
+  .greeting{ text-align:center; margin-bottom:20px; }
+  .greeting .hello{ font-size:14px; color:var(--text-dim); }
+  .greeting .name{ font-size:20px; font-weight:700; color:var(--gold); }
+  .card{
+    background:#fff; color:#1a1a1a; border-radius:14px; padding:20px; margin-bottom:20px;
+  }
+  .card .titre{
+    color:var(--orange); font-weight:700; font-size:13px; margin-bottom:14px;
+    display:flex; align-items:center; gap:6px;
+  }
+  .row{
+    display:flex; justify-content:space-between; padding:8px 0;
+    border-bottom:1px solid #eee; font-size:13px; gap:12px;
+  }
+  .row:last-child{ border-bottom:none; }
+  .row .k{ color:#777; flex-shrink:0; }
+  .row .v{ font-weight:600; text-align:right; }
+  .annexe-box{
+    background:#fdf6e3; border:1px solid #f0d878; border-radius:8px;
+    padding:10px 12px; margin:10px 0; font-size:13px;
+  }
+  .annexe-box .titre-annexe{ font-weight:700; color:#a87a10; margin-bottom:6px; }
+  .annexe-line{ display:flex; justify-content:space-between; padding:2px 0; }
+  .montant-box{
+    background:#fff9ea; border-radius:10px; padding:14px; text-align:center; margin-top:14px;
+  }
+  .montant-box .lbl{ font-size:12px; color:#a87a10; font-weight:600; }
+  .montant-box .val{ font-size:24px; font-weight:800; color:#a87a10; }
+  .question{ text-align:center; margin:20px 0 14px 0; }
+  .question h3{ font-size:16px; }
+  .question p{ font-size:12px; color:var(--text-dim); margin-top:4px; }
+  .btn{
+    width:100%; padding:16px; border-radius:10px; border:none;
+    font-size:15px; font-weight:700; cursor:pointer; margin-bottom:12px;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    color:#fff;
+  }
+  .btn .sub{ display:block; font-weight:400; font-size:11px; opacity:.9; }
+  .btn-confirmer{ background:var(--green); }
+  .btn-reporter{ background:var(--orange); }
+  .btn-annuler{ background:var(--red); }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .footnote{
+    text-align:center; font-size:11px; color:var(--text-dim); margin-top:14px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .state-box{
+    text-align:center; padding:40px 20px; font-size:14px; color:var(--text-dim);
+  }
+  .result-box{
+    text-align:center; padding:30px 20px; background:#161616; border-radius:14px;
+  }
+  .result-box .emoji{ font-size:40px; margin-bottom:10px; }
+  .result-box h3{ font-size:18px; margin-bottom:6px; }
+  .result-box p{ font-size:13px; color:var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="header">
+    <div class="logo-circle">P</div>
+    <h2>Perfect Services TNT</h2>
+  </div>
+
+  <div id="content">
+    <div class="state-box">Chargement de votre intervention...</div>
+  </div>
+</div>
+
+<script type="module">
+import { db, doc, getDoc, updateDoc } from "./firebase-config.js";
+
+const params = new URLSearchParams(window.location.search);
+const id = params.get('id');
+const content = document.getElementById('content');
+
+function labelStatutFinal(s){
+  const map = {
+    confirmee: { emoji:'✅', titre:'Rendez-vous confirmé', msg:'Merci ! Nous vous attendons à la date et l\'heure prévues.' },
+    reportee: { emoji:'🕐', titre:'Demande de report envoyée', msg:'Nous allons vous recontacter pour fixer une nouvelle date.' },
+    annulee: { emoji:'❌', titre:'Rendez-vous annulé', msg:'N\'hésitez pas à nous recontacter si vous souhaitez reprogrammer.' }
+  };
+  return map[s];
+}
+
+async function repondre(statut){
+  await updateDoc(doc(db, "interventions", id), {
+    statut,
+    confirmedAt: new Date().toISOString()
+  });
+  const info = labelStatutFinal(statut);
+  content.innerHTML = `
+    <div class="result-box">
+      <div class="emoji">${info.emoji}</div>
+      <h3>${info.titre}</h3>
+      <p>${info.msg}</p>
+    </div>
+  `;
+}
+window.repondre = repondre;
+
+async function charger(){
+  if(!id){
+    content.innerHTML = '<div class="state-box">Lien invalide ou incomplet.</div>';
+    return;
+  }
+  const snap = await getDoc(doc(db, "interventions", id));
+  if(!snap.exists()){
+    content.innerHTML = '<div class="state-box">Cette intervention est introuvable.</div>';
+    return;
+  }
+  const data = snap.data();
+
+  // Si déjà répondu, afficher l'état final directement
+  if(['confirmee','reportee','annulee'].includes(data.statut) && data.confirmedAt){
+    const info = labelStatutFinal(data.statut);
+    content.innerHTML = `
+      <div class="result-box">
+        <div class="emoji">${info.emoji}</div>
+        <h3>${info.titre}</h3>
+        <p>${info.msg}</p>
+      </div>
+    `;
+    return;
+  }
+
+  const annexes = data.travauxAnnexes || [];
+  let annexeHtml = '';
+  if(annexes.length > 0){
+    annexeHtml = `
+      <div class="annexe-box">
+        <div class="titre-annexe">⚠️ Travaux annexes prévus</div>
+        ${annexes.map(a => `<div class="annexe-line"><span>${a.nom}</span><span>+${(a.prix||0).toLocaleString('fr-FR')} FCFA</span></div>`).join('')}
+      </div>
+    `;
+  } else {
+    annexeHtml = `
+      <div class="annexe-box" style="background:#f4f4f4; border-color:#ddd;">
+        <div class="titre-annexe" style="color:#666;">ℹ️ Aucun travaux annexe prévu</div>
+      </div>
+    `;
+  }
+
+  content.innerHTML = `
+    <div class="greeting">
+      <div class="hello">Bonjour</div>
+      <div class="name">${data.clientNom || ''}</div>
+    </div>
+
+    <div class="card">
+      <div class="titre">📋 RÉSUMÉ DE L'INTERVENTION</div>
+      <div class="row"><span class="k">N° Intervention</span><span class="v">${data.numero || '—'}</span></div>
+      <div class="row"><span class="k">Prestation</span><span class="v">${data.prestationNom || '—'}</span></div>
+      <div class="row"><span class="k">Date</span><span class="v">${data.dateRdv || '—'}</span></div>
+      <div class="row"><span class="k">Heure</span><span class="v">${data.heureRdv || '—'}</span></div>
+      <div class="row"><span class="k">Adresse</span><span class="v">${data.clientAdresse || '—'}</span></div>
+
+      ${annexeHtml}
+
+      <div class="montant-box">
+        <div class="lbl">MONTANT TOTAL CONVENU</div>
+        <div class="val">${(data.montantTotal||0).toLocaleString('fr-FR')} FCFA</div>
+      </div>
+      <div style="text-align:center; font-size:11px; color:#a87a10; margin-top:8px;">
+        NB / Une validation de ${(data.acompte||0).toLocaleString('fr-FR')} FCFA (20%) est requise pour finaliser le créneau.
+      </div>
+    </div>
+
+    <div class="question">
+      <h3>Que souhaitez-vous faire ?</h3>
+      <p>Merci de sélectionner une option</p>
+    </div>
+
+    <button class="btn btn-confirmer" onclick="repondre('confirmee')">
+      ✅&nbsp; CONFIRMER<span class="sub">Je confirme mon rendez-vous</span>
+    </button>
+    <button class="btn btn-reporter" onclick="repondre('reportee')">
+      🕐&nbsp; REPORTER<span class="sub">Je souhaite changer la date / heure</span>
+    </button>
+    <button class="btn btn-annuler" onclick="repondre('annulee')">
+      ❌&nbsp; ANNULER<span class="sub">Je ne peux plus honorer ce rendez-vous</span>
+    </button>
+
+    <div class="footnote">🛡️ Quelle que soit votre réponse, nous vous enverrons la confirmation par WhatsApp.</div>
+  `;
+}
+charger();
+</script>
+</body>
+</html>
