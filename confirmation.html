@@ -190,7 +190,7 @@ async function charger(){
     <div class="card">
       <div class="titre">📋 RÉSUMÉ DE L'INTERVENTION</div>
       <div class="row"><span class="k">N° Intervention</span><span class="v">${data.numero || '—'}</span></div>
-      <div class="row"><span class="k">Prestation</span><span class="v">${data.prestationNom || '—'}</span></div>
+      <div class="row"><span class="k">Prestation</span><span class="v">${data.prestationNom || '—'}${data.prestationPrecision ? ' <br><span style=\'font-weight:400; color:#888; font-size:11px;\'>' + data.prestationPrecision + '</span>' : ''}</span></div>
       <div class="row"><span class="k">Date</span><span class="v">${data.dateRdv || '—'}</span></div>
       <div class="row"><span class="k">Heure</span><span class="v">${data.heureRdv || '—'}</span></div>
       <div class="row"><span class="k">Adresse</span><span class="v">${data.clientAdresse || '—'}</span></div>
