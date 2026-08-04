@@ -109,6 +109,14 @@
   .checkbox-row input{ width:auto; margin:0; }
   .back-link{ font-size:13px; color:var(--gold-2); cursor:pointer; margin-bottom:14px; display:inline-block; }
   .detail-row{ display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid #221d14; font-size:13px; }
+  .photo-zone{ margin-bottom:14px; }
+  .photo-placeholder{
+    border:1px dashed var(--border); border-radius:10px; padding:24px;
+    text-align:center; color:var(--text-dim); cursor:pointer; font-size:13px; transition:.15s;
+  }
+  .photo-placeholder:hover{ border-color:var(--gold-1); color:var(--gold-2); background:#161209; }
+  .photo-zone img{ width:100%; border-radius:10px; border:1px solid var(--border-soft); display:block; }
+  .photo-zone .retake{ font-size:11px; color:var(--text-dim); text-align:center; margin-top:6px; cursor:pointer; text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -264,6 +272,9 @@ window.retourListe = function(){
 };
 
 let materialCount = 0;
+let photoAvantData = null;
+let photoApresData = null;
+
 window.addMaterialRow = function(){
   materialCount++;
   const row = document.createElement('div');
@@ -273,7 +284,45 @@ window.addMaterialRow = function(){
   document.getElementById('materials-list').appendChild(row);
 };
 
+// Compresse une image (redimensionnement + qualité JPEG réduite) avant de la stocker,
+// pour rester léger même sans connexion très rapide et rester dans les limites gratuites.
+function compresserImage(file, callback){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const maxLargeur = 800;
+      const ratio = Math.min(1, maxLargeur / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * ratio;
+      canvas.height = img.height * ratio;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const base64 = canvas.toDataURL('image/jpeg', 0.6);
+      callback(base64);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+window.chargerPhoto = function(input, type){
+  const file = input.files[0];
+  if(!file) return;
+  compresserImage(file, (base64)=>{
+    if(type === 'avant'){ photoAvantData = base64; } else { photoApresData = base64; }
+    const preview = document.getElementById('preview-' + type);
+    const placeholder = document.getElementById('placeholder-' + type);
+    preview.src = base64;
+    preview.style.display = 'block';
+    placeholder.style.display = 'none';
+  });
+};
+
+
 function afficherDetail(data){
+  photoAvantData = null;
+  photoApresData = null;
   const dejaTermine = ['terminee','payee'].includes(data.statut);
   const annexes = data.travauxAnnexes || [];
 
@@ -313,24 +362,46 @@ function afficherDetail(data){
     <div class="detail-row"><span>Solde restant</span><span>${(data.solde||0).toLocaleString('fr-FR')} FCFA</span></div>
 
     ${dejaTermine ? `
-      <div style="margin-top:20px; padding:14px; background:var(--green-bg); border-radius:10px; text-align:center; color:#5fd68a; font-size:13px;">
-        ✅ Cette intervention est déjà clôturée.
+      <div style="margin:20px 0 10px 0; font-family:var(--font-display); font-size:17px; font-weight:700; color:var(--gold-2); border-bottom:1px solid var(--border-soft); padding-bottom:6px;">Compte-rendu enregistré</div>
+      ${data.materiauxUtilises && data.materiauxUtilises.length > 0 ? `
+        <div class="detail-row"><span>Matériaux utilisés</span><span style="text-align:right;">${data.materiauxUtilises.join(', ')}</span></div>
+      ` : ''}
+      ${data.remarquesTechnicien ? `<div class="detail-row"><span>Observations</span><span style="text-align:right;">${data.remarquesTechnicien}</span></div>` : ''}
+      ${data.photoAvant ? `<label style="margin-top:12px;">Photo avant</label><img src="${data.photoAvant}" style="width:100%; border-radius:10px; margin-bottom:10px;">` : ''}
+      ${data.photoApres ? `<label>Photo après</label><img src="${data.photoApres}" style="width:100%; border-radius:10px;">` : ''}
+      <div style="margin-top:16px; padding:14px; background:var(--green-bg); border-radius:10px; text-align:center; color:#5fd68a; font-size:13px;">
+        ✅ Cette intervention est clôturée.
       </div>
     ` : `
       <div style="margin:20px 0 10px 0; font-weight:600; font-size:13px; color:var(--gold-1);">Compte-rendu d'intervention</div>
       <label>Matériaux utilisés</label>
       <div id="materials-list"></div>
       <button type="button" class="add-material-btn" onclick="addMaterialRow()">+ Ajouter un matériau utilisé</button>
-      <label>Remarques (optionnel)</label>
+
+      <label>Photo AVANT intervention</label>
+      <div class="photo-zone" id="zone-avant">
+        <input type="file" accept="image/*" capture="environment" id="photo-avant-input" onchange="chargerPhoto(this, 'avant')" style="display:none;">
+        <div class="photo-placeholder" onclick="document.getElementById('photo-avant-input').click()" id="placeholder-avant">📷 Prendre une photo AVANT</div>
+        <img id="preview-avant" style="display:none;">
+      </div>
+
+      <label>Photo APRÈS intervention</label>
+      <div class="photo-zone" id="zone-apres">
+        <input type="file" accept="image/*" capture="environment" id="photo-apres-input" onchange="chargerPhoto(this, 'apres')" style="display:none;">
+        <div class="photo-placeholder" onclick="document.getElementById('photo-apres-input').click()" id="placeholder-apres">📷 Prendre une photo APRÈS</div>
+        <img id="preview-apres" style="display:none;">
+      </div>
+
+      <label>Observations (optionnel)</label>
       <textarea id="cr-remarques" rows="2" placeholder="Ex: RAS, intervention sans difficulté"></textarea>
       ${encaissementHtml}
-      <button class="btn" onclick="terminerIntervention()">Marquer comme terminée</button>
+      <button class="btn" onclick="terminerIntervention(event)">Marquer comme terminée</button>
     `}
   `;
   materialCount = 0;
 }
 
-window.terminerIntervention = async function(){
+window.terminerIntervention = async function(evt){
   const materiaux = [];
   document.querySelectorAll('.material-nom').forEach(inp=>{
     if(inp.value.trim()) materiaux.push(inp.value.trim());
@@ -339,16 +410,29 @@ window.terminerIntervention = async function(){
   const encaisseCheckbox = document.getElementById('cr-encaisse');
   const soldeEncaisse = encaisseCheckbox ? encaisseCheckbox.checked : false;
 
-  await updateDoc(doc(db, "interventions", currentIntervention.id), {
+  const btn = evt.target;
+  btn.disabled = true;
+  btn.textContent = "Enregistrement...";
+
+  const payload = {
     statut: soldeEncaisse ? "payee" : "terminee",
     materiauxUtilises: materiaux,
     remarquesTechnicien: remarques,
     soldeEncaisse: soldeEncaisse,
     termineAt: new Date().toISOString()
-  });
+  };
+  if(photoAvantData) payload.photoAvant = photoAvantData;
+  if(photoApresData) payload.photoApres = photoApresData;
 
-  alert("Compte-rendu enregistré. Merci !");
-  afficherEcran('screen-liste');
+  try {
+    await updateDoc(doc(db, "interventions", currentIntervention.id), payload);
+    alert("Compte-rendu enregistré. Merci !");
+    afficherEcran('screen-liste');
+  } catch(err){
+    alert("Erreur lors de l'enregistrement. Vérifie ta connexion et réessaie. Si le problème persiste, les photos sont peut-être trop lourdes.");
+    btn.disabled = false;
+    btn.textContent = "Marquer comme terminée";
+  }
 };
 
 // Démarrage : si déjà connecté (session sauvegardée), on saute direct à la liste
