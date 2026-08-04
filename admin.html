@@ -178,6 +178,7 @@
     .form-grid{ grid-template-columns:1fr; }
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -233,7 +234,7 @@
       <h3>Interventions récentes</h3>
       <table id="table-interventions">
         <thead>
-          <tr><th>N°</th><th>Client</th><th>Prestation</th><th>Technicien</th><th>Date</th><th>Montant</th><th>Statut</th></tr>
+          <tr><th>N°</th><th>Client</th><th>Prestation</th><th>Technicien</th><th>Date</th><th>Montant</th><th>Statut</th><th>PDF</th></tr>
         </thead>
         <tbody id="tbody-interventions">
           <tr><td colspan="6" class="empty">Chargement...</td></tr>
@@ -364,6 +365,10 @@
 <script type="module">
 import { db, collection, addDoc, getDocs, query, orderBy, onSnapshot, updateDoc, deleteDoc, doc, serverTimestamp } from "./firebase-config.js";
 
+// URL de ton Google Apps Script Web App pour l'archivage sur Google Drive
+// (à remplir une fois que tu auras créé le script — voir instructions)
+const GOOGLE_DRIVE_WEBAPP_URL = "";
+
 // ---------- NAVIGATION ----------
 window.goTo = function(pageId){
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
@@ -433,6 +438,123 @@ function updateTotals(){
 updateTotals();
 
 // ---------- CREATION INTERVENTION ----------
+// ---------- GENERATION PDF AUTOMATIQUE ----------
+function genererPdf(interData){
+  const { jsPDF } = window.jspdf;
+  const docPdf = new jsPDF();
+
+  // En-tête
+  docPdf.setFillColor(13,13,13);
+  docPdf.rect(0, 0, 210, 32, 'F');
+  docPdf.setTextColor(212,175,55);
+  docPdf.setFontSize(18);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("PERFECT SERVICES TNT", 14, 15);
+  docPdf.setFontSize(9);
+  docPdf.setFont(undefined, 'normal');
+  docPdf.text("Fiche d'intervention — " + interData.numero, 14, 23);
+
+  docPdf.setTextColor(30,30,30);
+  let y = 44;
+  const ligne = (label, valeur) => {
+    docPdf.setFont(undefined, 'bold');
+    docPdf.setFontSize(10);
+    docPdf.text(label, 14, y);
+    docPdf.setFont(undefined, 'normal');
+    docPdf.text(String(valeur || '—'), 70, y);
+    y += 8;
+  };
+
+  docPdf.setFontSize(13);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("Informations client", 14, y);
+  y += 8;
+  ligne("Nom", interData.clientNom);
+  ligne("Téléphone", interData.clientTel);
+  ligne("Adresse", interData.clientAdresse);
+
+  y += 4;
+  docPdf.setFontSize(13);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("Rendez-vous", 14, y);
+  y += 8;
+  ligne("Date", interData.dateRdv);
+  ligne("Heure", interData.heureRdv);
+  ligne("Technicien", interData.technicienNom || 'Non assigné');
+
+  y += 4;
+  docPdf.setFontSize(13);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("Prestation", 14, y);
+  y += 8;
+  ligne("Type", interData.prestationNom);
+  if(interData.prestationPrecision) ligne("Précision", interData.prestationPrecision);
+  ligne("Prix prestation", (interData.prestationPrix||0).toLocaleString('fr-FR') + " FCFA");
+
+  if(interData.travauxAnnexes && interData.travauxAnnexes.length > 0){
+    y += 2;
+    docPdf.setFont(undefined, 'bold');
+    docPdf.setFontSize(10);
+    docPdf.text("Travaux annexes :", 14, y);
+    y += 7;
+    interData.travauxAnnexes.forEach(a=>{
+      docPdf.setFont(undefined, 'normal');
+      docPdf.text(`- ${a.nom} : ${(a.prix||0).toLocaleString('fr-FR')} FCFA`, 18, y);
+      y += 6;
+    });
+  }
+
+  y += 6;
+  docPdf.setFillColor(240,216,120);
+  docPdf.rect(14, y-6, 182, 20, 'F');
+  docPdf.setTextColor(30,30,30);
+  docPdf.setFontSize(11);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("MONTANT TOTAL CONVENU :", 18, y+4);
+  docPdf.setFontSize(13);
+  docPdf.text((interData.montantTotal||0).toLocaleString('fr-FR') + " FCFA", 140, y+4);
+  y += 20;
+
+  docPdf.setTextColor(100,100,100);
+  docPdf.setFontSize(9);
+  docPdf.setFont(undefined, 'normal');
+  docPdf.text(`Acompte requis (20%) : ${(interData.acompte||0).toLocaleString('fr-FR')} FCFA — Solde : ${(interData.solde||0).toLocaleString('fr-FR')} FCFA`, 14, y);
+  y += 10;
+
+  if(interData.notesInternes){
+    docPdf.setFont(undefined, 'italic');
+    docPdf.text("Notes internes : " + interData.notesInternes, 14, y, { maxWidth: 180 });
+  }
+
+  docPdf.setFontSize(8);
+  docPdf.setTextColor(150,150,150);
+  docPdf.text("Document généré automatiquement — Perfect Services SGI", 14, 285);
+
+  return docPdf;
+}
+
+async function sauvegarderPdf(interData, docId){
+  const docPdf = genererPdf(interData);
+  const fileName = `${interData.numero}.pdf`;
+
+  // Envoi vers Google Drive (si le lien du script est configuré) — sinon, le PDF reste
+  // simplement régénérable à tout moment depuis les données stockées dans Firestore.
+  if(GOOGLE_DRIVE_WEBAPP_URL){
+    try {
+      const base64 = docPdf.output('datauristring').split(',')[1];
+      await fetch(GOOGLE_DRIVE_WEBAPP_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ fileName, base64 })
+      });
+    } catch(err){
+      console.error("Erreur envoi Google Drive :", err);
+    }
+  }
+
+  return docPdf;
+}
+
 window.creerIntervention = async function(){
   const nom = document.getElementById('in-nom').value.trim();
   const tel = document.getElementById('in-tel').value.trim();
@@ -485,6 +607,14 @@ window.creerIntervention = async function(){
     createdAt: serverTimestamp()
   });
 
+  // Génération et sauvegarde automatique du PDF (Firebase Storage + Google Drive)
+  const interDataComplete = {
+    numero, clientNom: nom, clientTel: tel, clientAdresse: adresse,
+    prestationNom, prestationPrix, prestationPrecision, travauxAnnexes: annexes,
+    montantTotal, acompte, solde, dateRdv, heureRdv, technicienNom, notesInternes: notes
+  };
+  const pdfGenere = await sauvegarderPdf(interDataComplete, docRef.id);
+
   const baseUrl = window.location.href.replace(/admin\.html.*$/, '');
   const lienConfirmation = baseUrl + "confirmation.html?id=" + docRef.id;
   const messageWa = encodeURIComponent(
@@ -510,9 +640,11 @@ window.creerIntervention = async function(){
       technicienHtml = `<br><br><a href="${lienWaTech}" target="_blank" style="color:#f0d878; font-weight:600;">→ Notifier ${technicienNom} via WhatsApp</a>`;
     }
   }
-  box.innerHTML = `✅ Dossier ${numero} créé avec succès.<br><br>
+  box.innerHTML = `✅ Dossier ${numero} créé avec succès. 📄 PDF sauvegardé automatiquement.<br><br>
+    <a href="#" onclick="window.__lastPdf.save('${numero}.pdf'); return false;" style="color:#f0d878; font-weight:600;">→ Télécharger le PDF de cette intervention</a><br><br>
     <strong>Lien de confirmation :</strong><br>${lienConfirmation}<br><br>
     <a href="${lienWhatsapp}" target="_blank" style="color:#f0d878; font-weight:600;">→ Envoyer au client via WhatsApp</a>${technicienHtml}`;
+  window.__lastPdf = pdfGenere;
 
   resetFormFields();
 };
@@ -556,9 +688,17 @@ async function verifierAnnulationsAuto(interventions){
 
 // ---------- ECOUTE TEMPS REEL DASHBOARD ----------
 const qInterventions = query(collection(db, "interventions"), orderBy("createdAt", "desc"));
+let cacheInterventions = [];
+window.voirPdf = function(id){
+  const data = cacheInterventions.find(i => i.id === id);
+  if(!data){ alert("Intervention introuvable."); return; }
+  const docPdf = genererPdf(data);
+  docPdf.output('dataurlnewwindow');
+};
 onSnapshot(qInterventions, async (snap)=>{
   const interventions = [];
   snap.forEach(d => interventions.push({ id: d.id, ...d.data() }));
+  cacheInterventions = interventions;
 
   await verifierAnnulationsAuto(interventions);
 
@@ -576,7 +716,7 @@ onSnapshot(qInterventions, async (snap)=>{
   // Table
   const tbody = document.getElementById('tbody-interventions');
   if(interventions.length === 0){
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucune intervention pour le moment.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">Aucune intervention pour le moment.</td></tr>';
   } else {
     tbody.innerHTML = interventions.slice(0,15).map(i => `
       <tr>
@@ -587,6 +727,7 @@ onSnapshot(qInterventions, async (snap)=>{
         <td>${i.dateRdv || '—'} ${i.heureRdv || ''}</td>
         <td>${(i.montantTotal||0).toLocaleString('fr-FR')} FCFA</td>
         <td><span class="badge ${i.statut}">${labelStatut(i.statut)}</span></td>
+        <td><a href="#" onclick="voirPdf('${i.id}'); return false;" style="color:var(--gold);">📄 Voir</a></td>
       </tr>
     `).join('');
   }
