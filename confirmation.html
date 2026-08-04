@@ -218,7 +218,7 @@ async function charger(){
         <div class="val">${(data.montantTotal||0).toLocaleString('fr-FR')} FCFA</div>
       </div>
       <div style="text-align:center; font-size:11px; color:#a87a10; margin-top:8px;">
-        NB / Une validation de ${(data.acompte||0).toLocaleString('fr-FR')} FCFA (20%) est requise pour finaliser le créneau.
+        NB / Une validation de ${(data.acompte||0).toLocaleString('fr-FR')} FCFA (${data.montantTotal ? Math.round((data.acompte/data.montantTotal)*100) : 0}%) est requise pour finaliser le créneau.
       </div>
     </div>
 

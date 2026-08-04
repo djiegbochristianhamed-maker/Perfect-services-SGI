@@ -262,6 +262,7 @@
     <div class="nav-item" data-page="nouvelle">➕ Nouvelle intervention</div>
     <div class="nav-item" data-page="clients">👥 Clients</div>
     <div class="nav-item" data-page="techniciens">🛠️ Techniciens</div>
+    <div class="nav-item" data-page="parametres">⚙️ Paramètres</div>
   </nav>
   <div style="padding:0 12px 12px 12px;">
     <a href="technicien.html" target="_blank" style="display:flex; align-items:center; gap:10px; padding:11px 14px; border-radius:8px; color:var(--gold-1); font-size:13px; text-decoration:none; border:1px dashed var(--border);">
@@ -336,10 +337,6 @@
         <div class="field">
           <label>Type de prestation</label>
           <select id="in-prestation-type">
-            <option value="Installation TNT">Installation TNT</option>
-            <option value="Canal+">Canal+</option>
-            <option value="Dépannage">Dépannage</option>
-            <option value="Fixation TV">Fixation TV</option>
             <option value="Autre">Autre / Personnalisé</option>
           </select>
         </div>
@@ -379,7 +376,7 @@
         <div class="totals-row"><span>Montant prestation</span><span id="tot-prestation">0 FCFA</span></div>
         <div class="totals-row"><span>Travaux annexes</span><span id="tot-annexes">0 FCFA</span></div>
         <div class="totals-row final"><span>Montant total convenu</span><span id="tot-total">0 FCFA</span></div>
-        <div class="totals-row"><span>Acompte requis (20%)</span><span id="tot-acompte">0 FCFA</span></div>
+        <div class="totals-row"><span id="lbl-acompte">Acompte requis</span><span id="tot-acompte">0 FCFA</span></div>
         <div class="totals-row"><span>Solde à régler</span><span id="tot-solde">0 FCFA</span></div>
       </div>
 
@@ -428,6 +425,40 @@
     </div>
   </div>
 
+  <!-- PAGE PARAMETRES -->
+  <div class="page" id="page-parametres">
+    <div class="page-header"><h1>Paramètres</h1></div>
+
+    <div class="card">
+      <h3>Types de prestations</h3>
+      <p style="font-size:12px; color:var(--text-dim); margin-bottom:14px;">Ces types apparaîtront dans le menu déroulant de "Nouvelle intervention".</p>
+      <div style="display:flex; gap:10px; margin-bottom:16px;">
+        <input type="text" id="prestation-nouvelle" placeholder="Ex: Installation parabole collective" style="flex:1;">
+        <button class="btn" onclick="ajouterPrestation()">Ajouter</button>
+      </div>
+      <div id="prestations-list"><div class="empty">Chargement...</div></div>
+    </div>
+
+    <div class="card">
+      <h3>Règles de fonctionnement</h3>
+      <div class="form-grid">
+        <div class="field">
+          <label>Taux d'acompte requis (%)</label>
+          <input type="number" id="param-acompte" value="20">
+        </div>
+        <div class="field">
+          <label>Heure limite de confirmation la veille (0-23h)</label>
+          <input type="number" id="param-heure-limite" value="18" min="0" max="23">
+        </div>
+      </div>
+      <p style="font-size:12px; color:var(--text-dim); margin-bottom:14px;">
+        Passé cette heure la veille du rendez-vous, une intervention non confirmée est automatiquement annulée.
+      </p>
+      <button class="btn" onclick="sauvegarderReglages()">Enregistrer les règles</button>
+      <div id="reglages-confirmation" style="color:#5fd68a; font-size:13px; margin-top:10px; display:none;">✅ Règles mises à jour.</div>
+    </div>
+  </div>
+
 </div>
 
 <!-- MODAL DETAIL INTERVENTION -->
@@ -439,7 +470,7 @@
 </div>
 
 <script type="module">
-import { db, collection, addDoc, getDocs, query, orderBy, onSnapshot, updateDoc, deleteDoc, doc, serverTimestamp, auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "./firebase-config.js";
+import { db, collection, addDoc, getDocs, getDoc, setDoc, query, orderBy, onSnapshot, updateDoc, deleteDoc, doc, serverTimestamp, auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "./firebase-config.js";
 
 // URL de ton Google Apps Script Web App pour l'archivage sur Google Drive
 // (à remplir une fois que tu auras créé le script — voir instructions)
@@ -483,6 +514,75 @@ onAuthStateChanged(auth, (user)=>{
     sidebar.style.display = 'none';
     main.style.display = 'none';
   }
+});
+
+// ---------- REGLES CONFIGURABLES (acompte, heure limite) ----------
+let reglagesActuels = { tauxAcompte: 20, heureLimite: 18 };
+
+async function chargerReglages(){
+  try {
+    const snap = await getDoc(doc(db, "parametres", "reglages"));
+    if(snap.exists()){
+      reglagesActuels = { ...reglagesActuels, ...snap.data() };
+      document.getElementById('param-acompte').value = reglagesActuels.tauxAcompte;
+      document.getElementById('param-heure-limite').value = reglagesActuels.heureLimite;
+    }
+  } catch(err){
+    console.error("Erreur chargement réglages :", err);
+  }
+  updateTotals();
+}
+chargerReglages();
+
+window.sauvegarderReglages = async function(){
+  const tauxAcompte = parseFloat(document.getElementById('param-acompte').value) || 20;
+  const heureLimite = parseInt(document.getElementById('param-heure-limite').value) || 18;
+  await setDoc(doc(db, "parametres", "reglages"), { tauxAcompte, heureLimite });
+  reglagesActuels = { tauxAcompte, heureLimite };
+  const conf = document.getElementById('reglages-confirmation');
+  conf.style.display = 'block';
+  setTimeout(()=> conf.style.display = 'none', 3000);
+  updateTotals();
+};
+
+// ---------- TYPES DE PRESTATIONS CONFIGURABLES ----------
+window.ajouterPrestation = async function(){
+  const nom = document.getElementById('prestation-nouvelle').value.trim();
+  if(!nom) return;
+  await addDoc(collection(db, "prestations"), { nom, createdAt: serverTimestamp() });
+  document.getElementById('prestation-nouvelle').value = '';
+};
+
+window.supprimerPrestation = async function(id){
+  if(confirm("Supprimer ce type de prestation ?")){
+    await deleteDoc(doc(db, "prestations", id));
+  }
+};
+
+const qPrestations = query(collection(db, "prestations"), orderBy("createdAt", "asc"));
+onSnapshot(qPrestations, (snap)=>{
+  const prestations = [];
+  snap.forEach(d => prestations.push({ id: d.id, ...d.data() }));
+
+  // Liste dans Paramètres
+  const list = document.getElementById('prestations-list');
+  if(prestations.length === 0){
+    list.innerHTML = '<div class="empty">Aucun type de prestation ajouté. Le menu affichera seulement "Autre / Personnalisé".</div>';
+  } else {
+    list.innerHTML = prestations.map(p => `
+      <div class="client-card" style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="name">${p.nom}</div>
+        <button class="btn btn-outline" style="padding:6px 12px; font-size:12px; color:var(--red); border-color:var(--red);" onclick="supprimerPrestation('${p.id}')">Supprimer</button>
+      </div>
+    `).join('');
+  }
+
+  // Menu déroulant dans "Nouvelle intervention"
+  const select = document.getElementById('in-prestation-type');
+  const current = select.value;
+  select.innerHTML = prestations.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('') +
+    '<option value="Autre">Autre / Personnalisé</option>';
+  if([...select.options].some(o => o.value === current)) select.value = current;
 });
 
 // ---------- NAVIGATION ----------
@@ -542,13 +642,14 @@ function updateTotals(){
   const annexes = getAnnexes();
   const totalAnnexes = annexes.reduce((s,a)=> s + a.prix, 0);
   const total = prestationPrix + totalAnnexes;
-  const acompte = Math.round(total * 0.2);
+  const acompte = Math.round(total * (reglagesActuels.tauxAcompte / 100));
   const solde = total - acompte;
 
   document.getElementById('tot-prestation').textContent = prestationPrix.toLocaleString('fr-FR') + ' FCFA';
   document.getElementById('tot-annexes').textContent = totalAnnexes.toLocaleString('fr-FR') + ' FCFA';
   document.getElementById('tot-total').textContent = total.toLocaleString('fr-FR') + ' FCFA';
   document.getElementById('tot-acompte').textContent = acompte.toLocaleString('fr-FR') + ' FCFA';
+  document.getElementById('lbl-acompte').textContent = `Acompte requis (${reglagesActuels.tauxAcompte}%)`;
   document.getElementById('tot-solde').textContent = solde.toLocaleString('fr-FR') + ' FCFA';
 }
 updateTotals();
@@ -634,7 +735,7 @@ function genererPdf(interData){
   docPdf.setTextColor(100,100,100);
   docPdf.setFontSize(9);
   docPdf.setFont(undefined, 'normal');
-  docPdf.text(`Acompte requis (20%) : ${(interData.acompte||0).toLocaleString('fr-FR')} FCFA — Solde : ${(interData.solde||0).toLocaleString('fr-FR')} FCFA`, 14, y);
+  docPdf.text(`Acompte requis (${reglagesActuels.tauxAcompte}%) : ${(interData.acompte||0).toLocaleString('fr-FR')} FCFA — Solde : ${(interData.solde||0).toLocaleString('fr-FR')} FCFA`, 14, y);
   y += 10;
 
   if(interData.notesInternes){
@@ -695,7 +796,7 @@ window.creerIntervention = async function(){
 
   const totalAnnexes = annexes.reduce((s,a)=> s + a.prix, 0);
   const montantTotal = prestationPrix + totalAnnexes;
-  const acompte = Math.round(montantTotal * 0.2);
+  const acompte = Math.round(montantTotal * (reglagesActuels.tauxAcompte / 100));
   const solde = montantTotal - acompte;
 
   const numero = "PS-" + dateRdv.replace(/-/g,'').slice(2) + "-" + Math.floor(100 + Math.random()*900);
@@ -795,7 +896,7 @@ async function verifierAnnulationsAuto(interventions){
     const dateRdv = new Date(inter.dateRdv + 'T00:00:00');
     const deadline = new Date(dateRdv);
     deadline.setDate(deadline.getDate() - 1);
-    deadline.setHours(18,0,0,0);
+    deadline.setHours(reglagesActuels.heureLimite, 0, 0, 0);
     if(maintenant > deadline){
       await updateDoc(doc(db, "interventions", inter.id), { statut: "annulee", annuleeAuto: true });
     }
