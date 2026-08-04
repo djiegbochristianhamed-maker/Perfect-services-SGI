@@ -183,7 +183,7 @@
 
 <div class="sidebar">
   <div class="logo">
-    <div class="logo-circle">P</div>
+    <div class="logo-circle"><img src="logo-icon.png" alt="Perfect Services" style="width:100%; height:100%; object-fit:cover; border-radius:50%;"></div>
     <div class="logo-text">
       <div class="brand">PERFECT SERVICES</div>
       <div class="sub">SGI</div>
@@ -195,6 +195,12 @@
     <div class="nav-item" data-page="clients">👥 Clients</div>
     <div class="nav-item" data-page="techniciens">🛠️ Techniciens</div>
   </nav>
+  <div style="padding:0 12px 12px 12px;">
+    <a href="technicien.html" target="_blank" style="display:flex; align-items:center; gap:10px; padding:11px 14px; border-radius:8px; color:var(--gold); font-size:13px; text-decoration:none; border:1px dashed var(--border);">
+      📱 Ouvrir l'espace technicien
+    </a>
+  </div>
+  <div style="flex:1;"></div>
   <div class="footer-user">
     <div class="avatar">N</div>
     <div>
@@ -210,7 +216,10 @@
   <div class="page active" id="page-dashboard">
     <div class="page-header">
       <h1>Tableau de bord</h1>
-      <button class="btn" onclick="goTo('nouvelle')">+ Nouvelle intervention</button>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-outline" style="color:var(--red); border-color:var(--red);" onclick="reinitialiserTableauDeBord()">🗑️ Réinitialiser</button>
+        <button class="btn" onclick="goTo('nouvelle')">+ Nouvelle intervention</button>
+      </div>
     </div>
 
     <div class="stats-row">
@@ -327,7 +336,7 @@
     <div class="page-header"><h1>Techniciens</h1></div>
 
     <div class="card">
-      <h3>Ajouter un technicien</h3>
+      <h3 id="tech-form-title">Ajouter un technicien</h3>
       <div class="form-grid">
         <div class="field"><label>Nom complet</label><input type="text" id="tech-nom" placeholder="Ex: Yao Koffi"></div>
         <div class="field"><label>Téléphone</label><input type="text" id="tech-tel" placeholder="Ex: 0709123456"></div>
@@ -340,7 +349,8 @@
         <input type="checkbox" id="tech-encaissement" style="width:auto;">
         <label style="margin:0;">Autorisé à encaisser le solde directement chez le client</label>
       </div>
-      <button class="btn" style="margin-top:14px;" onclick="ajouterTechnicien()">Ajouter le technicien</button>
+      <button class="btn" style="margin-top:14px;" id="tech-submit-btn" onclick="ajouterTechnicien()">Ajouter le technicien</button>
+      <button class="btn btn-outline" style="margin-top:14px; display:none;" id="tech-cancel-btn" onclick="annulerEditionTechnicien()">Annuler la modification</button>
     </div>
 
     <div class="card">
@@ -620,6 +630,8 @@ function labelStatut(s){
 }
 
 // ---------- GESTION DES TECHNICIENS ----------
+let editingTechId = null;
+
 window.ajouterTechnicien = async function(){
   const nom = document.getElementById('tech-nom').value.trim();
   const tel = document.getElementById('tech-tel').value.trim();
@@ -632,18 +644,65 @@ window.ajouterTechnicien = async function(){
     return;
   }
 
-  await addDoc(collection(db, "techniciens"), {
-    nom, tel, pin, commission, encaissement,
-    actif: true,
-    createdAt: serverTimestamp()
-  });
+  if(editingTechId){
+    // Mode modification
+    await updateDoc(doc(db, "techniciens", editingTechId), {
+      nom, tel, pin, commission, encaissement
+    });
+    annulerEditionTechnicien();
+  } else {
+    // Mode ajout
+    await addDoc(collection(db, "techniciens"), {
+      nom, tel, pin, commission, encaissement,
+      actif: true,
+      createdAt: serverTimestamp()
+    });
+    resetFormTechnicien();
+  }
+};
 
+function resetFormTechnicien(){
   document.getElementById('tech-nom').value = '';
   document.getElementById('tech-tel').value = '';
   document.getElementById('tech-pin').value = '';
   document.getElementById('tech-commission').value = 15;
   document.getElementById('tech-encaissement').checked = false;
+}
+
+window.modifierTechnicien = function(id, nom, tel, pin, commission, encaissement){
+  editingTechId = id;
+  document.getElementById('tech-nom').value = nom;
+  document.getElementById('tech-tel').value = tel;
+  document.getElementById('tech-pin').value = pin;
+  document.getElementById('tech-commission').value = commission;
+  document.getElementById('tech-encaissement').checked = encaissement;
+  document.getElementById('tech-form-title').textContent = 'Modifier ' + nom;
+  document.getElementById('tech-submit-btn').textContent = 'Enregistrer les modifications';
+  document.getElementById('tech-cancel-btn').style.display = 'block';
+  window.scrollTo({top:0, behavior:'smooth'});
+  goTo('techniciens');
 };
+
+window.annulerEditionTechnicien = function(){
+  editingTechId = null;
+  resetFormTechnicien();
+  document.getElementById('tech-form-title').textContent = 'Ajouter un technicien';
+  document.getElementById('tech-submit-btn').textContent = 'Ajouter le technicien';
+  document.getElementById('tech-cancel-btn').style.display = 'none';
+};
+
+// ---------- REINITIALISATION DU TABLEAU DE BORD ----------
+window.reinitialiserTableauDeBord = async function(){
+  const confirmation = prompt("⚠️ Ceci va supprimer TOUTES les interventions (irréversible). Tape RESET pour confirmer :");
+  if(confirmation !== 'RESET') return;
+
+  const snap = await getDocs(collection(db, "interventions"));
+  const suppressions = [];
+  snap.forEach(d => suppressions.push(deleteDoc(doc(db, "interventions", d.id))));
+  await Promise.all(suppressions);
+  alert("Tableau de bord réinitialisé : toutes les interventions ont été supprimées.");
+};
+
 
 window.toggleTechnicienActif = async function(id, actif){
   await updateDoc(doc(db, "techniciens", id), { actif: !actif });
@@ -672,6 +731,7 @@ onSnapshot(qTechniciens, (snap)=>{
           <div class="meta">${t.tel} · Commission ${t.commission}% · PIN ${t.pin} · ${t.encaissement ? '💰 Autorisé à encaisser' : '🚫 Encaissement non autorisé'}</div>
         </div>
         <div style="display:flex; gap:8px;">
+          <button class="btn btn-outline" style="padding:7px 12px; font-size:12px;" onclick='modifierTechnicien("${t.id}", ${JSON.stringify(t.nom)}, ${JSON.stringify(t.tel)}, ${JSON.stringify(t.pin)}, ${t.commission}, ${t.encaissement})'>Modifier</button>
           <button class="btn btn-outline" style="padding:7px 12px; font-size:12px;" onclick="toggleTechnicienActif('${t.id}', ${t.actif})">${t.actif ? 'Désactiver' : 'Activer'}</button>
           <button class="btn btn-outline" style="padding:7px 12px; font-size:12px; color:var(--red); border-color:var(--red);" onclick="supprimerTechnicien('${t.id}')">Supprimer</button>
         </div>
