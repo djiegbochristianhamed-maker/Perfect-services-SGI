@@ -220,10 +220,29 @@
   .client-card:hover{ border-color:var(--gold-deep); }
   .client-card .name{ font-weight:700; margin-bottom:4px; font-family:var(--font-display); font-size:17px; }
   .client-card .meta{ font-size:12px; color:var(--text-dim); }
+  .mobile-topbar{ display:none; }
   @media(max-width:900px){
-    .sidebar{ display:none; }
+    body{ flex-direction:column; }
+    .mobile-topbar{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 18px; background:#0a0908; border-bottom:1px solid var(--border-soft);
+      position:sticky; top:0; z-index:60;
+    }
+    .mobile-topbar .hamburger{ font-size:22px; color:var(--gold-1); cursor:pointer; background:none; border:none; }
+    .sidebar{
+      position:fixed; top:0; left:0; bottom:0; z-index:70;
+      transform:translateX(-100%); transition:transform .25s;
+      box-shadow:10px 0 30px rgba(0,0,0,0.6);
+    }
+    .sidebar.open{ transform:translateX(0); }
+    .sidebar-overlay{
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:65;
+    }
+    .sidebar-overlay.open{ display:block; }
     .stats-row{ grid-template-columns:repeat(2,1fr); }
     .form-grid{ grid-template-columns:1fr; }
+    .main{ padding:18px 16px; }
+    table{ font-size:12px; }
   }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -251,6 +270,16 @@
     </div>
   </div>
 </div>
+
+<div class="mobile-topbar" id="mobile-topbar" style="display:none;">
+  <button class="hamburger" onclick="toggleMobileMenu()">☰</button>
+  <div style="display:flex; align-items:center; gap:8px;">
+    <img src="logo-icon.png" alt="Perfect Services" style="width:28px; height:28px; border-radius:50%; object-fit:cover; border:1px solid var(--gold-1);">
+    <span style="font-family:var(--font-display); font-weight:700; color:var(--gold-2); font-size:15px;">Perfect Services</span>
+  </div>
+  <div style="width:22px;"></div>
+</div>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleMobileMenu()"></div>
 
 <div class="sidebar" id="app-sidebar" style="display:none;">
   <div class="logo">
@@ -520,16 +549,24 @@ onAuthStateChanged(auth, (user)=>{
   const loginScreen = document.getElementById('screen-login-admin');
   const sidebar = document.getElementById('app-sidebar');
   const main = document.getElementById('app-main');
+  const topbar = document.getElementById('mobile-topbar');
   if(user){
     loginScreen.style.display = 'none';
     sidebar.style.display = 'flex';
     main.style.display = 'block';
+    topbar.style.display = 'flex';
   } else {
     loginScreen.style.display = 'flex';
     sidebar.style.display = 'none';
     main.style.display = 'none';
+    topbar.style.display = 'none';
   }
 });
+
+window.toggleMobileMenu = function(){
+  document.getElementById('app-sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+};
 
 // ---------- REGLES CONFIGURABLES (acompte, heure limite) ----------
 let reglagesActuels = { tauxAcompte: 20, heureLimite: 18 };
@@ -604,6 +641,8 @@ onSnapshot(qPrestations, (snap)=>{
 window.goTo = function(pageId){
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + pageId));
+  document.getElementById('app-sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
 };
 document.querySelectorAll('.nav-item').forEach(item=>{
   item.addEventListener('click', ()=> goTo(item.dataset.page));
@@ -869,7 +908,9 @@ window.creerIntervention = async function(){
       );
       const telTechClean = techTel.replace(/[^0-9]/g,'');
       const lienWaTech = `https://wa.me/225${telTechClean}?text=${msgTech}`;
-      technicienHtml = `<br><br><a href="${lienWaTech}" target="_blank" style="color:#f0d878; font-weight:600;">→ Notifier ${technicienNom} via WhatsApp</a>`;
+      technicienHtml = `<br><br><a href="${lienWaTech}" target="_blank" style="color:#f0d878; font-weight:600;">→ Renvoyer à ${technicienNom} via WhatsApp</a>`;
+      // Ouverture automatique : il ne reste plus qu'à appuyer sur "Envoyer" dans WhatsApp
+      window.open(lienWaTech, '_blank');
     }
   }
   box.innerHTML = `✅ Dossier ${numero} créé avec succès. 📄 PDF sauvegardé automatiquement.<br><br>
