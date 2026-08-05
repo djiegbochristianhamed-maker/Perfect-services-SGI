@@ -1170,6 +1170,17 @@ window.reinitialiserTableauDeBord = async function(){
 };
 
 
+window.envoyerIdentifiantsTechnicien = function(nom, tel, pin){
+  const baseUrl = window.location.href.replace(/admin\.html.*$/, '');
+  const lienTechnicien = baseUrl + "technicien.html";
+  const message = encodeURIComponent(
+    `Bonjour ${nom}, bienvenue chez Perfect Services !\n\nVoici tes identifiants pour accéder à tes interventions :\n📱 Lien : ${lienTechnicien}\n🔢 Code PIN : ${pin}\n\nGarde ce message précieusement, tu en auras besoin à chaque connexion.`
+  );
+  const telClean = tel.replace(/[^0-9]/g,'');
+  const lien = `https://wa.me/225${telClean}?text=${message}`;
+  window.open(lien, '_blank');
+};
+
 window.toggleTechnicienActif = async function(id, actif){
   await updateDoc(doc(db, "techniciens", id), { actif: !actif });
 };
@@ -1197,6 +1208,7 @@ onSnapshot(qTechniciens, (snap)=>{
           <div class="meta">${t.tel} · Commission ${t.commission}% · PIN ${t.pin} · ${t.encaissement ? '💰 Autorisé à encaisser' : '🚫 Encaissement non autorisé'}</div>
         </div>
         <div style="display:flex; gap:8px;">
+          <button class="btn" style="padding:7px 12px; font-size:12px;" onclick='envoyerIdentifiantsTechnicien(${JSON.stringify(t.nom)}, ${JSON.stringify(t.tel)}, ${JSON.stringify(t.pin)})'>📤 Envoyer ses identifiants</button>
           <button class="btn btn-outline" style="padding:7px 12px; font-size:12px;" onclick='modifierTechnicien("${t.id}", ${JSON.stringify(t.nom)}, ${JSON.stringify(t.tel)}, ${JSON.stringify(t.pin)}, ${t.commission}, ${t.encaissement})'>Modifier</button>
           <button class="btn btn-outline" style="padding:7px 12px; font-size:12px;" onclick="toggleTechnicienActif('${t.id}', ${t.actif})">${t.actif ? 'Désactiver' : 'Activer'}</button>
           <button class="btn btn-outline" style="padding:7px 12px; font-size:12px; color:var(--red); border-color:var(--red);" onclick="supprimerTechnicien('${t.id}')">Supprimer</button>
