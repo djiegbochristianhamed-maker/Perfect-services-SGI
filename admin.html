@@ -826,6 +826,14 @@ async function sauvegarderPdf(interData, docId){
   return docPdf;
 }
 
+// Formate un numéro ivoirien pour WhatsApp : retire le 0 initial avant d'ajouter l'indicatif 225
+function formaterNumeroWhatsapp(tel){
+  let clean = tel.replace(/[^0-9]/g,'');
+  if(clean.startsWith('225')) clean = clean.slice(3); // au cas où le 225 aurait déjà été tapé
+  if(clean.startsWith('0')) clean = clean.slice(1);
+  return '225' + clean;
+}
+
 window.creerIntervention = async function(){
   const nom = document.getElementById('in-nom').value.trim();
   const tel = document.getElementById('in-tel').value.trim();
@@ -891,8 +899,7 @@ window.creerIntervention = async function(){
   const messageWa = encodeURIComponent(
     `Bonjour ${nom}. Votre intervention ${numero} (${prestationNom}) est prévue le ${dateRdv} à ${heureRdv}. Merci de confirmer ici : ${lienConfirmation}`
   );
-  const telClean = tel.replace(/[^0-9]/g,'');
-  const lienWhatsapp = `https://wa.me/225${telClean}?text=${messageWa}`;
+  const lienWhatsapp = `https://wa.me/${formaterNumeroWhatsapp(tel)}?text=${messageWa}`;
 
   const box = document.getElementById('result-link');
   box.style.display = 'block';
@@ -906,8 +913,7 @@ window.creerIntervention = async function(){
       const msgTech = encodeURIComponent(
         `Nouvelle intervention assignée : ${numero}\nClient: ${nom}\nPrestation: ${prestationNom}\nDate: ${dateRdv} à ${heureRdv}\nAdresse: ${adresse}`
       );
-      const telTechClean = techTel.replace(/[^0-9]/g,'');
-      const lienWaTech = `https://wa.me/225${telTechClean}?text=${msgTech}`;
+      const lienWaTech = `https://wa.me/${formaterNumeroWhatsapp(techTel)}?text=${msgTech}`;
       technicienHtml = `<br><br><a href="${lienWaTech}" target="_blank" style="color:#f0d878; font-weight:600;">→ Renvoyer à ${technicienNom} via WhatsApp</a>`;
       // Ouverture automatique : il ne reste plus qu'à appuyer sur "Envoyer" dans WhatsApp
       window.open(lienWaTech, '_blank');
@@ -1176,8 +1182,7 @@ window.envoyerIdentifiantsTechnicien = function(nom, tel, pin){
   const message = encodeURIComponent(
     `Bonjour ${nom}, bienvenue chez Perfect Services !\n\nVoici tes identifiants pour accéder à tes interventions :\n📱 Lien : ${lienTechnicien}\n🔢 Code PIN : ${pin}\n\nGarde ce message précieusement, tu en auras besoin à chaque connexion.`
   );
-  const telClean = tel.replace(/[^0-9]/g,'');
-  const lien = `https://wa.me/225${telClean}?text=${message}`;
+  const lien = `https://wa.me/${formaterNumeroWhatsapp(tel)}?text=${message}`;
   window.open(lien, '_blank');
 };
 
