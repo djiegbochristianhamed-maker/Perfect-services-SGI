@@ -826,11 +826,11 @@ async function sauvegarderPdf(interData, docId){
   return docPdf;
 }
 
-// Formate un numéro ivoirien pour WhatsApp : retire le 0 initial avant d'ajouter l'indicatif 225
+// Formate un numéro ivoirien pour WhatsApp : les numéros CI (depuis 2021) sont à 10 chiffres
+// et le "0" initial fait partie du numéro — on ne le retire PAS pour l'international.
 function formaterNumeroWhatsapp(tel){
   let clean = tel.replace(/[^0-9]/g,'');
   if(clean.startsWith('225')) clean = clean.slice(3); // au cas où le 225 aurait déjà été tapé
-  if(clean.startsWith('0')) clean = clean.slice(1);
   return '225' + clean;
 }
 
