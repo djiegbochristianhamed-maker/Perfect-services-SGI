@@ -220,10 +220,29 @@
   .client-card:hover{ border-color:var(--gold-deep); }
   .client-card .name{ font-weight:700; margin-bottom:4px; font-family:var(--font-display); font-size:17px; }
   .client-card .meta{ font-size:12px; color:var(--text-dim); }
+  .mobile-topbar{ display:none; }
   @media(max-width:900px){
-    .sidebar{ display:none; }
+    body{ flex-direction:column; }
+    .mobile-topbar{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 18px; background:#0a0908; border-bottom:1px solid var(--border-soft);
+      position:sticky; top:0; z-index:60;
+    }
+    .mobile-topbar .hamburger{ font-size:22px; color:var(--gold-1); cursor:pointer; background:none; border:none; }
+    .sidebar{
+      position:fixed; top:0; left:0; bottom:0; z-index:70;
+      transform:translateX(-100%); transition:transform .25s;
+      box-shadow:10px 0 30px rgba(0,0,0,0.6);
+    }
+    .sidebar.open{ transform:translateX(0); }
+    .sidebar-overlay{
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:65;
+    }
+    .sidebar-overlay.open{ display:block; }
     .stats-row{ grid-template-columns:repeat(2,1fr); }
     .form-grid{ grid-template-columns:1fr; }
+    .main{ padding:18px 16px; }
+    table{ font-size:12px; }
   }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -251,6 +270,16 @@
     </div>
   </div>
 </div>
+
+<div class="mobile-topbar" id="mobile-topbar" style="display:none;">
+  <button class="hamburger" onclick="toggleMobileMenu()">☰</button>
+  <div style="display:flex; align-items:center; gap:8px;">
+    <img src="logo-icon.png" alt="Perfect Services" style="width:28px; height:28px; border-radius:50%; object-fit:cover; border:1px solid var(--gold-1);">
+    <span style="font-family:var(--font-display); font-weight:700; color:var(--gold-2); font-size:15px;">Perfect Services</span>
+  </div>
+  <div style="width:22px;"></div>
+</div>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleMobileMenu()"></div>
 
 <div class="sidebar" id="app-sidebar" style="display:none;">
   <div class="logo">
@@ -402,7 +431,10 @@
 
   <!-- PAGE TECHNICIENS -->
   <div class="page" id="page-techniciens">
-    <div class="page-header"><h1>Techniciens</h1></div>
+    <div class="page-header">
+      <h1>Techniciens</h1>
+      <button class="btn btn-outline" style="color:var(--red); border-color:var(--red);" onclick="reinitialiserTechniciens()">🗑️ Supprimer tous les techniciens</button>
+    </div>
 
     <div class="card">
       <h3 id="tech-form-title">Ajouter un technicien</h3>
@@ -520,16 +552,24 @@ onAuthStateChanged(auth, (user)=>{
   const loginScreen = document.getElementById('screen-login-admin');
   const sidebar = document.getElementById('app-sidebar');
   const main = document.getElementById('app-main');
+  const topbar = document.getElementById('mobile-topbar');
   if(user){
     loginScreen.style.display = 'none';
     sidebar.style.display = 'flex';
     main.style.display = 'block';
+    topbar.style.display = 'flex';
   } else {
     loginScreen.style.display = 'flex';
     sidebar.style.display = 'none';
     main.style.display = 'none';
+    topbar.style.display = 'none';
   }
 });
+
+window.toggleMobileMenu = function(){
+  document.getElementById('app-sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+};
 
 // ---------- REGLES CONFIGURABLES (acompte, heure limite) ----------
 let reglagesActuels = { tauxAcompte: 20, heureLimite: 18 };
@@ -604,6 +644,8 @@ onSnapshot(qPrestations, (snap)=>{
 window.goTo = function(pageId){
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + pageId));
+  document.getElementById('app-sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
 };
 document.querySelectorAll('.nav-item').forEach(item=>{
   item.addEventListener('click', ()=> goTo(item.dataset.page));
@@ -787,6 +829,14 @@ async function sauvegarderPdf(interData, docId){
   return docPdf;
 }
 
+// Formate un numéro ivoirien pour WhatsApp : les numéros CI (depuis 2021) sont à 10 chiffres
+// et le "0" initial fait partie du numéro — on ne le retire PAS pour l'international.
+function formaterNumeroWhatsapp(tel){
+  let clean = tel.replace(/[^0-9]/g,'');
+  if(clean.startsWith('225')) clean = clean.slice(3); // au cas où le 225 aurait déjà été tapé
+  return '225' + clean;
+}
+
 window.creerIntervention = async function(){
   const nom = document.getElementById('in-nom').value.trim();
   const tel = document.getElementById('in-tel').value.trim();
@@ -803,6 +853,8 @@ window.creerIntervention = async function(){
   const annexes = getAnnexes();
   const technicienVal = document.getElementById('in-technicien').value;
   const [technicienId, technicienNom] = technicienVal ? technicienVal.split('|') : [null, null];
+  const technicienData = technicienId ? cacheTechniciens.find(t => t.id === technicienId) : null;
+  const technicienCommission = technicienData ? (technicienData.commission || 0) : 0;
 
   if(!nom || !tel || !dateRdv || !heureRdv){
     alert("Merci de remplir au minimum : nom, téléphone, date et heure du rendez-vous.");
@@ -832,6 +884,9 @@ window.creerIntervention = async function(){
     heureRdv,
     technicienId,
     technicienNom,
+    technicienCommission,
+    montantCommissionTechnicien: Math.round(montantTotal * (technicienCommission / 100)),
+    technicienNotifie: false,
     statut: "en_attente_confirmation",
     notesInternes: notes,
     soldeEncaisse: false,
@@ -852,30 +907,17 @@ window.creerIntervention = async function(){
   const messageWa = encodeURIComponent(
     `Bonjour ${nom}. Votre intervention ${numero} (${prestationNom}) est prévue le ${dateRdv} à ${heureRdv}. Merci de confirmer ici : ${lienConfirmation}`
   );
-  const telClean = tel.replace(/[^0-9]/g,'');
-  const lienWhatsapp = `https://wa.me/225${telClean}?text=${messageWa}`;
+  const lienWhatsapp = `https://wa.me/${formaterNumeroWhatsapp(tel)}?text=${messageWa}`;
 
   const box = document.getElementById('result-link');
   box.style.display = 'block';
-  let technicienHtml = '';
-  if(technicienId){
-    // Récupérer le téléphone du technicien pour lui envoyer une notif WhatsApp
-    const techSnap = await getDocs(query(collection(db, "techniciens")));
-    let techTel = '';
-    techSnap.forEach(d => { if(d.id === technicienId) techTel = d.data().tel; });
-    if(techTel){
-      const msgTech = encodeURIComponent(
-        `Nouvelle intervention assignée : ${numero}\nClient: ${nom}\nPrestation: ${prestationNom}\nDate: ${dateRdv} à ${heureRdv}\nAdresse: ${adresse}`
-      );
-      const telTechClean = techTel.replace(/[^0-9]/g,'');
-      const lienWaTech = `https://wa.me/225${telTechClean}?text=${msgTech}`;
-      technicienHtml = `<br><br><a href="${lienWaTech}" target="_blank" style="color:#f0d878; font-weight:600;">→ Notifier ${technicienNom} via WhatsApp</a>`;
-    }
-  }
+  const noteTechnicien = technicienId
+    ? `<br><br>ℹ️ ${technicienNom} sera à notifier une fois que le client aura confirmé (badge "🔔 À notifier" dans le tableau de bord).`
+    : '';
   box.innerHTML = `✅ Dossier ${numero} créé avec succès. 📄 PDF sauvegardé automatiquement.<br><br>
     <a href="#" onclick="window.__lastPdf.save('${numero}.pdf'); return false;" style="color:#f0d878; font-weight:600;">→ Télécharger le PDF de cette intervention</a><br><br>
     <strong>Lien de confirmation :</strong><br>${lienConfirmation}<br><br>
-    <a href="${lienWhatsapp}" target="_blank" style="color:#f0d878; font-weight:600;">→ Envoyer au client via WhatsApp</a>${technicienHtml}`;
+    <a href="${lienWhatsapp}" target="_blank" style="color:#f0d878; font-weight:600;">→ Envoyer au client via WhatsApp</a>${noteTechnicien}`;
   window.__lastPdf = pdfGenere;
 
   resetFormFields();
@@ -921,6 +963,25 @@ async function verifierAnnulationsAuto(interventions){
 // ---------- ECOUTE TEMPS REEL DASHBOARD ----------
 const qInterventions = query(collection(db, "interventions"), orderBy("createdAt", "desc"));
 let cacheInterventions = [];
+window.notifierTechnicien = async function(interventionId){
+  const data = cacheInterventions.find(i => i.id === interventionId);
+  if(!data || !data.technicienId) return;
+
+  const techSnap = await getDocs(query(collection(db, "techniciens")));
+  let techTel = '';
+  techSnap.forEach(d => { if(d.id === data.technicienId) techTel = d.data().tel; });
+
+  if(!techTel){ alert("Numéro du technicien introuvable."); return; }
+
+  const msgTech = encodeURIComponent(
+    `Rendez-vous confirmé par le client ✅\nIntervention : ${data.numero}\nClient: ${data.clientNom}\nPrestation: ${data.prestationNom}\nDate: ${data.dateRdv} à ${data.heureRdv}\nAdresse: ${data.clientAdresse}`
+  );
+  const lienWaTech = `https://wa.me/${formaterNumeroWhatsapp(techTel)}?text=${msgTech}`;
+  window.open(lienWaTech, '_blank');
+
+  await updateDoc(doc(db, "interventions", interventionId), { technicienNotifie: true });
+};
+
 window.voirPdf = function(id){
   const data = cacheInterventions.find(i => i.id === id);
   if(!data){ alert("Intervention introuvable."); return; }
@@ -956,9 +1017,24 @@ window.ouvrirDetailAdmin = function(id){
     ${annexesHtml}
     <div class="totals-row final" style="margin-top:8px;"><span>Total</span><span>${(data.montantTotal||0).toLocaleString('fr-FR')} FCFA</span></div>
 
+    ${data.technicienId ? `
+      <div class="section-title">Rémunération technicien</div>
+      <div class="totals-row"><span>Taux de commission</span><span>${data.technicienCommission || 0}%</span></div>
+      <div class="totals-row" style="font-weight:700; color:#5fd68a;"><span>${data.technicienNom} perçoit</span><span>${(data.montantCommissionTechnicien||0).toLocaleString('fr-FR')} FCFA</span></div>
+    ` : ''}
+
     ${data.materiauxUtilises && data.materiauxUtilises.length > 0 ? `
-      <div class="section-title">Matériaux utilisés</div>
-      <p style="font-size:13px; color:var(--text-dim);">${data.materiauxUtilises.join(', ')}</p>
+      <div class="section-title">Matériaux utilisés (coût terrain, hors facturation client)</div>
+      ${data.materiauxUtilises.map(m => `<div class="totals-row"><span>${m.nom || m}</span><span>${m.prix ? m.prix.toLocaleString('fr-FR') + ' FCFA' : '—'}</span></div>`).join('')}
+      <div class="totals-row" style="font-weight:700; color:var(--gold-2); border-top:1px solid var(--border-soft); margin-top:6px; padding-top:6px;"><span>Coût total matériaux</span><span>${(data.coutTotalMateriaux||0).toLocaleString('fr-FR')} FCFA</span></div>
+    ` : ''}
+
+    ${(data.statut === 'terminee' || data.statut === 'payee') ? `
+      <div class="section-title">Marge nette de l'intervention</div>
+      <div class="totals-row"><span>Montant facturé client</span><span>${(data.montantTotal||0).toLocaleString('fr-FR')} FCFA</span></div>
+      <div class="totals-row"><span>− Coût matériaux</span><span>-${(data.coutTotalMateriaux||0).toLocaleString('fr-FR')} FCFA</span></div>
+      <div class="totals-row"><span>− Commission ${data.technicienNom || 'technicien'}</span><span>-${(data.montantCommissionTechnicien||0).toLocaleString('fr-FR')} FCFA</span></div>
+      <div class="totals-row final" style="margin-top:6px;"><span>Marge entreprise</span><span>${((data.montantTotal||0) - (data.coutTotalMateriaux||0) - (data.montantCommissionTechnicien||0)).toLocaleString('fr-FR')} FCFA</span></div>
     ` : ''}
 
     ${data.remarquesTechnicien ? `
@@ -1010,7 +1086,11 @@ onSnapshot(qInterventions, async (snap)=>{
         <td>${i.technicienNom || '<span style="color:var(--text-faint);">Non assigné</span>'}</td>
         <td>${i.dateRdv || '—'} ${i.heureRdv || ''}</td>
         <td>${(i.montantTotal||0).toLocaleString('fr-FR')} FCFA</td>
-        <td><span class="badge ${i.statut}">${labelStatut(i.statut)}</span></td>
+        <td>
+          <span class="badge ${i.statut}">${labelStatut(i.statut)}</span>
+          ${i.statut === 'confirmee' && i.technicienId && !i.technicienNotifie ? `<br><a href="#" onclick="event.stopPropagation(); notifierTechnicien('${i.id}');" style="color:var(--orange); font-size:11px; font-weight:700;">🔔 À notifier</a>` : ''}
+          ${i.statut === 'confirmee' && i.technicienId && i.technicienNotifie ? `<br><span style="color:#5fd68a; font-size:11px;">✓ Notifié</span>` : ''}
+        </td>
         <td><a href="#" onclick="event.stopPropagation(); voirPdf('${i.id}'); return false;" style="color:var(--gold-1);">📄 PDF</a></td>
       </tr>
     `).join('');
@@ -1128,6 +1208,27 @@ window.reinitialiserTableauDeBord = async function(){
   alert("Tableau de bord réinitialisé : toutes les interventions ont été supprimées.");
 };
 
+window.reinitialiserTechniciens = async function(){
+  const confirmation = prompt("⚠️ Ceci va supprimer TOUS les techniciens (irréversible). Tape RESET pour confirmer :");
+  if(confirmation !== 'RESET') return;
+
+  const snap = await getDocs(collection(db, "techniciens"));
+  const suppressions = [];
+  snap.forEach(d => suppressions.push(deleteDoc(doc(db, "techniciens", d.id))));
+  await Promise.all(suppressions);
+  alert("Tous les techniciens ont été supprimés.");
+};
+
+
+window.envoyerIdentifiantsTechnicien = function(nom, tel, pin){
+  const baseUrl = window.location.href.replace(/admin\.html.*$/, '');
+  const lienTechnicien = baseUrl + "technicien.html";
+  const message = encodeURIComponent(
+    `Bonjour ${nom}, bienvenue chez Perfect Services !\n\nVoici tes identifiants pour accéder à tes interventions :\n📱 Lien : ${lienTechnicien}\n🔢 Code PIN : ${pin}\n\nGarde ce message précieusement, tu en auras besoin à chaque connexion.`
+  );
+  const lien = `https://wa.me/${formaterNumeroWhatsapp(tel)}?text=${message}`;
+  window.open(lien, '_blank');
+};
 
 window.toggleTechnicienActif = async function(id, actif){
   await updateDoc(doc(db, "techniciens", id), { actif: !actif });
@@ -1140,9 +1241,11 @@ window.supprimerTechnicien = async function(id){
 };
 
 const qTechniciens = query(collection(db, "techniciens"), orderBy("createdAt", "desc"));
+let cacheTechniciens = [];
 onSnapshot(qTechniciens, (snap)=>{
   const techniciens = [];
   snap.forEach(d => techniciens.push({ id: d.id, ...d.data() }));
+  cacheTechniciens = techniciens;
 
   // Liste admin
   const list = document.getElementById('techniciens-list');
@@ -1156,6 +1259,7 @@ onSnapshot(qTechniciens, (snap)=>{
           <div class="meta">${t.tel} · Commission ${t.commission}% · PIN ${t.pin} · ${t.encaissement ? '💰 Autorisé à encaisser' : '🚫 Encaissement non autorisé'}</div>
         </div>
         <div style="display:flex; gap:8px;">
+          <button class="btn" style="padding:7px 12px; font-size:12px;" onclick='envoyerIdentifiantsTechnicien(${JSON.stringify(t.nom)}, ${JSON.stringify(t.tel)}, ${JSON.stringify(t.pin)})'>📤 Envoyer ses identifiants</button>
           <button class="btn btn-outline" style="padding:7px 12px; font-size:12px;" onclick='modifierTechnicien("${t.id}", ${JSON.stringify(t.nom)}, ${JSON.stringify(t.tel)}, ${JSON.stringify(t.pin)}, ${t.commission}, ${t.encaissement})'>Modifier</button>
           <button class="btn btn-outline" style="padding:7px 12px; font-size:12px;" onclick="toggleTechnicienActif('${t.id}', ${t.actif})">${t.actif ? 'Désactiver' : 'Activer'}</button>
           <button class="btn btn-outline" style="padding:7px 12px; font-size:12px; color:var(--red); border-color:var(--red);" onclick="supprimerTechnicien('${t.id}')">Supprimer</button>
