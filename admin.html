@@ -853,6 +853,8 @@ window.creerIntervention = async function(){
   const annexes = getAnnexes();
   const technicienVal = document.getElementById('in-technicien').value;
   const [technicienId, technicienNom] = technicienVal ? technicienVal.split('|') : [null, null];
+  const technicienData = technicienId ? cacheTechniciens.find(t => t.id === technicienId) : null;
+  const technicienCommission = technicienData ? (technicienData.commission || 0) : 0;
 
   if(!nom || !tel || !dateRdv || !heureRdv){
     alert("Merci de remplir au minimum : nom, téléphone, date et heure du rendez-vous.");
@@ -882,6 +884,8 @@ window.creerIntervention = async function(){
     heureRdv,
     technicienId,
     technicienNom,
+    technicienCommission,
+    montantCommissionTechnicien: Math.round(montantTotal * (technicienCommission / 100)),
     technicienNotifie: false,
     statut: "en_attente_confirmation",
     notesInternes: notes,
@@ -1013,10 +1017,24 @@ window.ouvrirDetailAdmin = function(id){
     ${annexesHtml}
     <div class="totals-row final" style="margin-top:8px;"><span>Total</span><span>${(data.montantTotal||0).toLocaleString('fr-FR')} FCFA</span></div>
 
+    ${data.technicienId ? `
+      <div class="section-title">Rémunération technicien</div>
+      <div class="totals-row"><span>Taux de commission</span><span>${data.technicienCommission || 0}%</span></div>
+      <div class="totals-row" style="font-weight:700; color:#5fd68a;"><span>${data.technicienNom} perçoit</span><span>${(data.montantCommissionTechnicien||0).toLocaleString('fr-FR')} FCFA</span></div>
+    ` : ''}
+
     ${data.materiauxUtilises && data.materiauxUtilises.length > 0 ? `
       <div class="section-title">Matériaux utilisés (coût terrain, hors facturation client)</div>
       ${data.materiauxUtilises.map(m => `<div class="totals-row"><span>${m.nom || m}</span><span>${m.prix ? m.prix.toLocaleString('fr-FR') + ' FCFA' : '—'}</span></div>`).join('')}
       <div class="totals-row" style="font-weight:700; color:var(--gold-2); border-top:1px solid var(--border-soft); margin-top:6px; padding-top:6px;"><span>Coût total matériaux</span><span>${(data.coutTotalMateriaux||0).toLocaleString('fr-FR')} FCFA</span></div>
+    ` : ''}
+
+    ${(data.statut === 'terminee' || data.statut === 'payee') ? `
+      <div class="section-title">Marge nette de l'intervention</div>
+      <div class="totals-row"><span>Montant facturé client</span><span>${(data.montantTotal||0).toLocaleString('fr-FR')} FCFA</span></div>
+      <div class="totals-row"><span>− Coût matériaux</span><span>-${(data.coutTotalMateriaux||0).toLocaleString('fr-FR')} FCFA</span></div>
+      <div class="totals-row"><span>− Commission ${data.technicienNom || 'technicien'}</span><span>-${(data.montantCommissionTechnicien||0).toLocaleString('fr-FR')} FCFA</span></div>
+      <div class="totals-row final" style="margin-top:6px;"><span>Marge entreprise</span><span>${((data.montantTotal||0) - (data.coutTotalMateriaux||0) - (data.montantCommissionTechnicien||0)).toLocaleString('fr-FR')} FCFA</span></div>
     ` : ''}
 
     ${data.remarquesTechnicien ? `
@@ -1223,9 +1241,11 @@ window.supprimerTechnicien = async function(id){
 };
 
 const qTechniciens = query(collection(db, "techniciens"), orderBy("createdAt", "desc"));
+let cacheTechniciens = [];
 onSnapshot(qTechniciens, (snap)=>{
   const techniciens = [];
   snap.forEach(d => techniciens.push({ id: d.id, ...d.data() }));
+  cacheTechniciens = techniciens;
 
   // Liste admin
   const list = document.getElementById('techniciens-list');

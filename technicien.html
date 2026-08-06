@@ -369,6 +369,7 @@ function afficherDetail(data){
     <div style="margin:12px 0 4px 0; font-weight:600; font-size:13px; color:var(--gold-1);">Travaux annexes</div>
     ${annexesHtml}
     <div class="detail-row" style="font-weight:700; color:var(--gold-1); font-size:15px; margin-top:8px;"><span>Montant total</span><span>${(data.montantTotal||0).toLocaleString('fr-FR')} FCFA</span></div>
+    ${data.technicienCommission ? `<div class="detail-row" style="color:#5fd68a;"><span>Tu perçois (${data.technicienCommission}%)</span><span>${(data.montantCommissionTechnicien||0).toLocaleString('fr-FR')} FCFA</span></div>` : ''}
     <div class="detail-row"><span>Solde restant</span><span>${(data.solde||0).toLocaleString('fr-FR')} FCFA</span></div>
 
     ${dejaTermine ? `
