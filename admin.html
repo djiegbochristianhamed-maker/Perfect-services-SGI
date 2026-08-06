@@ -431,7 +431,10 @@
 
   <!-- PAGE TECHNICIENS -->
   <div class="page" id="page-techniciens">
-    <div class="page-header"><h1>Techniciens</h1></div>
+    <div class="page-header">
+      <h1>Techniciens</h1>
+      <button class="btn btn-outline" style="color:var(--red); border-color:var(--red);" onclick="reinitialiserTechniciens()">🗑️ Supprimer tous les techniciens</button>
+    </div>
 
     <div class="card">
       <h3 id="tech-form-title">Ajouter un technicien</h3>
@@ -1184,6 +1187,17 @@ window.reinitialiserTableauDeBord = async function(){
   snap.forEach(d => suppressions.push(deleteDoc(doc(db, "interventions", d.id))));
   await Promise.all(suppressions);
   alert("Tableau de bord réinitialisé : toutes les interventions ont été supprimées.");
+};
+
+window.reinitialiserTechniciens = async function(){
+  const confirmation = prompt("⚠️ Ceci va supprimer TOUS les techniciens (irréversible). Tape RESET pour confirmer :");
+  if(confirmation !== 'RESET') return;
+
+  const snap = await getDocs(collection(db, "techniciens"));
+  const suppressions = [];
+  snap.forEach(d => suppressions.push(deleteDoc(doc(db, "techniciens", d.id))));
+  await Promise.all(suppressions);
+  alert("Tous les techniciens ont été supprimés.");
 };
 
 
