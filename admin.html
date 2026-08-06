@@ -879,6 +879,7 @@ window.creerIntervention = async function(){
     heureRdv,
     technicienId,
     technicienNom,
+    technicienNotifie: false,
     statut: "en_attente_confirmation",
     notesInternes: notes,
     soldeEncaisse: false,
@@ -903,26 +904,13 @@ window.creerIntervention = async function(){
 
   const box = document.getElementById('result-link');
   box.style.display = 'block';
-  let technicienHtml = '';
-  if(technicienId){
-    // Récupérer le téléphone du technicien pour lui envoyer une notif WhatsApp
-    const techSnap = await getDocs(query(collection(db, "techniciens")));
-    let techTel = '';
-    techSnap.forEach(d => { if(d.id === technicienId) techTel = d.data().tel; });
-    if(techTel){
-      const msgTech = encodeURIComponent(
-        `Nouvelle intervention assignée : ${numero}\nClient: ${nom}\nPrestation: ${prestationNom}\nDate: ${dateRdv} à ${heureRdv}\nAdresse: ${adresse}`
-      );
-      const lienWaTech = `https://wa.me/${formaterNumeroWhatsapp(techTel)}?text=${msgTech}`;
-      technicienHtml = `<br><br><a href="${lienWaTech}" target="_blank" style="color:#f0d878; font-weight:600;">→ Renvoyer à ${technicienNom} via WhatsApp</a>`;
-      // Ouverture automatique : il ne reste plus qu'à appuyer sur "Envoyer" dans WhatsApp
-      window.open(lienWaTech, '_blank');
-    }
-  }
+  const noteTechnicien = technicienId
+    ? `<br><br>ℹ️ ${technicienNom} sera à notifier une fois que le client aura confirmé (badge "🔔 À notifier" dans le tableau de bord).`
+    : '';
   box.innerHTML = `✅ Dossier ${numero} créé avec succès. 📄 PDF sauvegardé automatiquement.<br><br>
     <a href="#" onclick="window.__lastPdf.save('${numero}.pdf'); return false;" style="color:#f0d878; font-weight:600;">→ Télécharger le PDF de cette intervention</a><br><br>
     <strong>Lien de confirmation :</strong><br>${lienConfirmation}<br><br>
-    <a href="${lienWhatsapp}" target="_blank" style="color:#f0d878; font-weight:600;">→ Envoyer au client via WhatsApp</a>${technicienHtml}`;
+    <a href="${lienWhatsapp}" target="_blank" style="color:#f0d878; font-weight:600;">→ Envoyer au client via WhatsApp</a>${noteTechnicien}`;
   window.__lastPdf = pdfGenere;
 
   resetFormFields();
@@ -968,6 +956,25 @@ async function verifierAnnulationsAuto(interventions){
 // ---------- ECOUTE TEMPS REEL DASHBOARD ----------
 const qInterventions = query(collection(db, "interventions"), orderBy("createdAt", "desc"));
 let cacheInterventions = [];
+window.notifierTechnicien = async function(interventionId){
+  const data = cacheInterventions.find(i => i.id === interventionId);
+  if(!data || !data.technicienId) return;
+
+  const techSnap = await getDocs(query(collection(db, "techniciens")));
+  let techTel = '';
+  techSnap.forEach(d => { if(d.id === data.technicienId) techTel = d.data().tel; });
+
+  if(!techTel){ alert("Numéro du technicien introuvable."); return; }
+
+  const msgTech = encodeURIComponent(
+    `Rendez-vous confirmé par le client ✅\nIntervention : ${data.numero}\nClient: ${data.clientNom}\nPrestation: ${data.prestationNom}\nDate: ${data.dateRdv} à ${data.heureRdv}\nAdresse: ${data.clientAdresse}`
+  );
+  const lienWaTech = `https://wa.me/${formaterNumeroWhatsapp(techTel)}?text=${msgTech}`;
+  window.open(lienWaTech, '_blank');
+
+  await updateDoc(doc(db, "interventions", interventionId), { technicienNotifie: true });
+};
+
 window.voirPdf = function(id){
   const data = cacheInterventions.find(i => i.id === id);
   if(!data){ alert("Intervention introuvable."); return; }
@@ -1057,7 +1064,11 @@ onSnapshot(qInterventions, async (snap)=>{
         <td>${i.technicienNom || '<span style="color:var(--text-faint);">Non assigné</span>'}</td>
         <td>${i.dateRdv || '—'} ${i.heureRdv || ''}</td>
         <td>${(i.montantTotal||0).toLocaleString('fr-FR')} FCFA</td>
-        <td><span class="badge ${i.statut}">${labelStatut(i.statut)}</span></td>
+        <td>
+          <span class="badge ${i.statut}">${labelStatut(i.statut)}</span>
+          ${i.statut === 'confirmee' && i.technicienId && !i.technicienNotifie ? `<br><a href="#" onclick="event.stopPropagation(); notifierTechnicien('${i.id}');" style="color:var(--orange); font-size:11px; font-weight:700;">🔔 À notifier</a>` : ''}
+          ${i.statut === 'confirmee' && i.technicienId && i.technicienNotifie ? `<br><span style="color:#5fd68a; font-size:11px;">✓ Notifié</span>` : ''}
+        </td>
         <td><a href="#" onclick="event.stopPropagation(); voirPdf('${i.id}'); return false;" style="color:var(--gold-1);">📄 PDF</a></td>
       </tr>
     `).join('');
