@@ -1014,8 +1014,9 @@ window.ouvrirDetailAdmin = function(id){
     <div class="totals-row final" style="margin-top:8px;"><span>Total</span><span>${(data.montantTotal||0).toLocaleString('fr-FR')} FCFA</span></div>
 
     ${data.materiauxUtilises && data.materiauxUtilises.length > 0 ? `
-      <div class="section-title">Matériaux utilisés</div>
-      <p style="font-size:13px; color:var(--text-dim);">${data.materiauxUtilises.join(', ')}</p>
+      <div class="section-title">Matériaux utilisés (coût terrain, hors facturation client)</div>
+      ${data.materiauxUtilises.map(m => `<div class="totals-row"><span>${m.nom || m}</span><span>${m.prix ? m.prix.toLocaleString('fr-FR') + ' FCFA' : '—'}</span></div>`).join('')}
+      <div class="totals-row" style="font-weight:700; color:var(--gold-2); border-top:1px solid var(--border-soft); margin-top:6px; padding-top:6px;"><span>Coût total matériaux</span><span>${(data.coutTotalMateriaux||0).toLocaleString('fr-FR')} FCFA</span></div>
     ` : ''}
 
     ${data.remarquesTechnicien ? `

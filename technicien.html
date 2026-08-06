@@ -280,8 +280,18 @@ window.addMaterialRow = function(){
   const row = document.createElement('div');
   row.className = 'material-row';
   row.id = 'material-' + materialCount;
-  row.innerHTML = `<input type="text" placeholder="Ex: Câble RG6 20m" class="material-nom"><button type="button" onclick="document.getElementById('material-${materialCount}').remove()">✕</button>`;
+  row.innerHTML = `<input type="text" placeholder="Ex: Câble RG6 20m" class="material-nom" style="flex:2;"><input type="number" placeholder="Prix FCFA" class="material-prix" style="flex:1;" oninput="updateTotalMateriaux()"><button type="button" onclick="document.getElementById('material-${materialCount}').remove(); updateTotalMateriaux();">✕</button>`;
   document.getElementById('materials-list').appendChild(row);
+  updateTotalMateriaux();
+};
+
+window.updateTotalMateriaux = function(){
+  let total = 0;
+  document.querySelectorAll('.material-prix').forEach(inp=>{
+    total += parseFloat(inp.value) || 0;
+  });
+  const el = document.getElementById('total-materiaux');
+  if(el) el.textContent = total.toLocaleString('fr-FR') + ' FCFA';
 };
 
 // Compresse une image (redimensionnement + qualité JPEG réduite) avant de la stocker,
@@ -364,7 +374,10 @@ function afficherDetail(data){
     ${dejaTermine ? `
       <div style="margin:20px 0 10px 0; font-family:var(--font-display); font-size:17px; font-weight:700; color:var(--gold-2); border-bottom:1px solid var(--border-soft); padding-bottom:6px;">Compte-rendu enregistré</div>
       ${data.materiauxUtilises && data.materiauxUtilises.length > 0 ? `
-        <div class="detail-row"><span>Matériaux utilisés</span><span style="text-align:right;">${data.materiauxUtilises.join(', ')}</span></div>
+        <div style="margin-top:6px;">
+          ${data.materiauxUtilises.map(m => `<div class="detail-row"><span>${m.nom || m}</span><span>${m.prix ? m.prix.toLocaleString('fr-FR') + ' FCFA' : '—'}</span></div>`).join('')}
+          <div class="detail-row" style="font-weight:700; color:var(--gold-2);"><span>Coût total matériaux</span><span>${(data.coutTotalMateriaux||0).toLocaleString('fr-FR')} FCFA</span></div>
+        </div>
       ` : ''}
       ${data.remarquesTechnicien ? `<div class="detail-row"><span>Observations</span><span style="text-align:right;">${data.remarquesTechnicien}</span></div>` : ''}
       ${data.photoAvant ? `<label style="margin-top:12px;">Photo avant</label><img src="${data.photoAvant}" style="width:100%; border-radius:10px; margin-bottom:10px;">` : ''}
@@ -377,6 +390,10 @@ function afficherDetail(data){
       <label>Matériaux utilisés</label>
       <div id="materials-list"></div>
       <button type="button" class="add-material-btn" onclick="addMaterialRow()">+ Ajouter un matériau utilisé</button>
+      <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--text-dim); margin:-6px 0 14px 0; padding:0 2px;">
+        <span>Coût total des matériaux utilisés (info, non facturé au client)</span>
+        <span id="total-materiaux" style="color:var(--gold-2); font-weight:700;">0 FCFA</span>
+      </div>
 
       <label>Photo AVANT intervention</label>
       <div class="photo-zone" id="zone-avant">
@@ -403,9 +420,13 @@ function afficherDetail(data){
 
 window.terminerIntervention = async function(evt){
   const materiaux = [];
-  document.querySelectorAll('.material-nom').forEach(inp=>{
-    if(inp.value.trim()) materiaux.push(inp.value.trim());
+  const rows = document.querySelectorAll('.material-row');
+  rows.forEach(row=>{
+    const nom = row.querySelector('.material-nom').value.trim();
+    const prix = parseFloat(row.querySelector('.material-prix').value) || 0;
+    if(nom) materiaux.push({ nom, prix });
   });
+  const coutTotalMateriaux = materiaux.reduce((s,m)=> s + m.prix, 0);
   const remarques = document.getElementById('cr-remarques').value.trim();
   const encaisseCheckbox = document.getElementById('cr-encaisse');
   const soldeEncaisse = encaisseCheckbox ? encaisseCheckbox.checked : false;
@@ -417,6 +438,7 @@ window.terminerIntervention = async function(evt){
   const payload = {
     statut: soldeEncaisse ? "payee" : "terminee",
     materiauxUtilises: materiaux,
+    coutTotalMateriaux: coutTotalMateriaux,
     remarquesTechnicien: remarques,
     soldeEncaisse: soldeEncaisse,
     termineAt: new Date().toISOString()

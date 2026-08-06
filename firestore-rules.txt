@@ -11,7 +11,7 @@ service cloud.firestore {
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut','confirmedAt'])
           && request.resource.data.statut in ['confirmee','reportee','annulee'])
         ||
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut','materiauxUtilises','remarquesTechnicien','soldeEncaisse','termineAt','photoAvant','photoApres'])
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut','materiauxUtilises','coutTotalMateriaux','remarquesTechnicien','soldeEncaisse','termineAt','photoAvant','photoApres'])
           && request.resource.data.statut in ['terminee','payee'])
         ||
         request.auth != null;
