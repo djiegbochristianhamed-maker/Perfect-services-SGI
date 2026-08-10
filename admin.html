@@ -461,14 +461,17 @@
       <div class="form-grid">
         <div class="field">
           <label>Formule</label>
-          <select id="contrat-formule">
-            <option value="Essentiel">Essentiel</option>
-            <option value="Confort">Confort</option>
-            <option value="Pro">Pro</option>
-            <option value="Personnalisé">Personnalisé</option>
+          <select id="contrat-formule" onchange="appliquerFormulePreset()">
+            <option value="Essentiel" data-prix="15000" data-visites="2">Essentiel (2 visites/an)</option>
+            <option value="Confort" data-prix="28000" data-visites="4">Confort (4 visites/an)</option>
+            <option value="Pro" data-prix="55000" data-visites="6">Pro (tous les 2 mois)</option>
+            <option value="Personnalisé" data-prix="" data-visites="">Personnalisé</option>
           </select>
         </div>
-        <div class="field"><label>Montant (FCFA)</label><input type="number" id="contrat-montant" placeholder="Ex: 25000"></div>
+        <div class="field"><label>Montant annuel (FCFA)</label><input type="number" id="contrat-montant" placeholder="Ex: 15000"></div>
+      </div>
+      <div class="field" style="margin-top:-4px; margin-bottom:14px;">
+        <span id="contrat-visites-info" style="font-size:11px; color:var(--gold-1);">2 visites par an incluses</span>
       </div>
       <div class="form-grid">
         <div class="field"><label>Date de début</label><input type="date" id="contrat-debut"></div>
@@ -477,6 +480,9 @@
       <div class="form-grid">
         <div class="field"><label>Zone / Adresse</label><input type="text" id="contrat-zone" placeholder="Ex: Abobo, Cocody..."></div>
         <div class="field"><label>Notes (optionnel)</label><input type="text" id="contrat-notes" placeholder="Ex: 2 postes TV, décodeur Canal+"></div>
+      </div>
+      <div style="background:var(--orange-bg); border:1px solid var(--orange); border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:12px; color:var(--text);">
+        ℹ️ Le contrat couvre la main-d'œuvre et le déplacement. Les <strong>pièces et matériaux remplacés restent à la charge du client</strong>, sauf mention contraire (réservé au contrat Pro dans le futur).
       </div>
       <button class="btn" id="contrat-submit-btn" onclick="enregistrerContrat()">Enregistrer le contrat</button>
       <button class="btn btn-outline" onclick="fermerFormContrat()">Annuler</button>
@@ -918,6 +924,23 @@ window.ouvrirFormContrat = function(){
   document.getElementById('contrat-zone').value = '';
   document.getElementById('contrat-notes').value = '';
   document.getElementById('form-contrat-card').style.display = 'block';
+  appliquerFormulePreset();
+};
+
+window.appliquerFormulePreset = function(){
+  const select = document.getElementById('contrat-formule');
+  const opt = select.options[select.selectedIndex];
+  const prix = opt.dataset.prix;
+  const visites = opt.dataset.visites;
+  const montantInput = document.getElementById('contrat-montant');
+  const infoSpan = document.getElementById('contrat-visites-info');
+  if(prix){
+    montantInput.value = prix;
+    infoSpan.textContent = `${visites} visites par an incluses`;
+    infoSpan.style.display = 'inline';
+  } else {
+    infoSpan.style.display = 'none';
+  }
 };
 
 window.fermerFormContrat = function(){
