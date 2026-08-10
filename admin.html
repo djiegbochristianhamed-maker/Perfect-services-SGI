@@ -168,6 +168,9 @@
   .badge.annulee, .badge.reportee{ background:var(--red-bg); color:#f07070; }
   .badge.terminee{ background:#1e2a3a; color:#7ab8f0; }
   .badge.payee{ background:var(--green-bg); color:#5fd68a; }
+  .badge.actif{ background:var(--green-bg); color:#5fd68a; }
+  .badge.bientot{ background:var(--orange-bg); color:#f0a94e; }
+  .badge.expire{ background:var(--red-bg); color:#f07070; }
   /* Form */
   .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   .form-grid.full{ grid-template-columns:1fr; }
@@ -293,6 +296,7 @@
     <div class="nav-item active" data-page="dashboard">📊 Tableau de bord</div>
     <div class="nav-item" data-page="nouvelle">➕ Nouvelle intervention</div>
     <div class="nav-item" data-page="clients">👥 Clients</div>
+    <div class="nav-item" data-page="contrats">📋 Contrats <span id="nav-contrats-badge" style="display:none; background:var(--red); color:#fff; border-radius:10px; font-size:10px; padding:1px 7px; margin-left:4px; font-weight:700;"></span></div>
     <div class="nav-item" data-page="techniciens">🛠️ Techniciens</div>
     <div class="nav-item" data-page="parametres">⚙️ Paramètres</div>
   </nav>
@@ -329,6 +333,11 @@
       <div class="stat-card green"><div class="label">Confirmées</div><div class="value" id="stat-confirmees">0</div></div>
       <div class="stat-card orange"><div class="label">En attente</div><div class="value" id="stat-attente">0</div></div>
       <div class="stat-card red"><div class="label">Annulées</div><div class="value" id="stat-annulees">0</div></div>
+    </div>
+
+    <div class="card" id="dash-contrats-alert" style="display:none; border-color:var(--orange); cursor:pointer;" onclick="goTo('contrats')">
+      <h3 style="margin-bottom:6px;">⏰ Contrats à renouveler</h3>
+      <p id="dash-contrats-alert-text" style="font-size:13px; color:var(--text-dim);"></p>
     </div>
 
     <div class="card">
@@ -426,6 +435,63 @@
     <div class="page-header"><h1>Clients</h1></div>
     <div class="card">
       <div id="clients-list"><div class="empty">Chargement...</div></div>
+    </div>
+  </div>
+
+  <!-- PAGE CONTRATS -->
+  <div class="page" id="page-contrats">
+    <div class="page-header">
+      <h1>Contrats de maintenance</h1>
+      <button class="btn" onclick="ouvrirFormContrat()">+ Nouveau contrat</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card green"><div class="label">Contrats actifs</div><div class="value" id="stat-contrats-actifs">0</div></div>
+      <div class="stat-card orange"><div class="label">À renouveler (30j)</div><div class="value" id="stat-contrats-bientot">0</div></div>
+      <div class="stat-card red"><div class="label">Expirés</div><div class="value" id="stat-contrats-expires">0</div></div>
+      <div class="stat-card"><div class="label">Revenu récurrent / mois</div><div class="value" id="stat-contrats-revenu">0 FCFA</div></div>
+    </div>
+
+    <div class="card" id="form-contrat-card" style="display:none;">
+      <h3 id="contrat-form-title">Nouveau contrat</h3>
+      <div class="form-grid">
+        <div class="field"><label>Nom du client</label><input type="text" id="contrat-nom" placeholder="Ex: Mme Cissé"></div>
+        <div class="field"><label>Téléphone (WhatsApp)</label><input type="text" id="contrat-tel" placeholder="Ex: 0707470833"></div>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Formule</label>
+          <select id="contrat-formule">
+            <option value="Essentiel">Essentiel</option>
+            <option value="Confort">Confort</option>
+            <option value="Pro">Pro</option>
+            <option value="Personnalisé">Personnalisé</option>
+          </select>
+        </div>
+        <div class="field"><label>Montant (FCFA)</label><input type="number" id="contrat-montant" placeholder="Ex: 25000"></div>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label>Date de début</label><input type="date" id="contrat-debut"></div>
+        <div class="field"><label>Durée (mois)</label><input type="number" id="contrat-duree" value="12"></div>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label>Zone / Adresse</label><input type="text" id="contrat-zone" placeholder="Ex: Abobo, Cocody..."></div>
+        <div class="field"><label>Notes (optionnel)</label><input type="text" id="contrat-notes" placeholder="Ex: 2 postes TV, décodeur Canal+"></div>
+      </div>
+      <button class="btn" id="contrat-submit-btn" onclick="enregistrerContrat()">Enregistrer le contrat</button>
+      <button class="btn btn-outline" onclick="fermerFormContrat()">Annuler</button>
+    </div>
+
+    <div class="card">
+      <h3>Tous les contrats</h3>
+      <table id="table-contrats">
+        <thead>
+          <tr><th>Client</th><th>Formule</th><th>Montant</th><th>Expire le</th><th>Statut</th><th>Action</th></tr>
+        </thead>
+        <tbody id="tbody-contrats">
+          <tr><td colspan="6" class="empty">Chargement...</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -836,6 +902,148 @@ function formaterNumeroWhatsapp(tel){
   if(clean.startsWith('225')) clean = clean.slice(3); // au cas où le 225 aurait déjà été tapé
   return '225' + clean;
 }
+
+// ================= GESTION DES CONTRATS DE MAINTENANCE =================
+let editingContratId = null;
+
+window.ouvrirFormContrat = function(){
+  editingContratId = null;
+  document.getElementById('contrat-form-title').textContent = 'Nouveau contrat';
+  document.getElementById('contrat-nom').value = '';
+  document.getElementById('contrat-tel').value = '';
+  document.getElementById('contrat-formule').value = 'Essentiel';
+  document.getElementById('contrat-montant').value = '';
+  document.getElementById('contrat-debut').value = new Date().toISOString().slice(0,10);
+  document.getElementById('contrat-duree').value = 12;
+  document.getElementById('contrat-zone').value = '';
+  document.getElementById('contrat-notes').value = '';
+  document.getElementById('form-contrat-card').style.display = 'block';
+};
+
+window.fermerFormContrat = function(){
+  document.getElementById('form-contrat-card').style.display = 'none';
+  editingContratId = null;
+};
+
+function ajouterMois(dateStr, mois){
+  const d = new Date(dateStr);
+  d.setMonth(d.getMonth() + parseInt(mois || 12));
+  return d.toISOString().slice(0,10);
+}
+
+window.enregistrerContrat = async function(){
+  const nom = document.getElementById('contrat-nom').value.trim();
+  const tel = document.getElementById('contrat-tel').value.trim();
+  const formule = document.getElementById('contrat-formule').value;
+  const montant = parseFloat(document.getElementById('contrat-montant').value) || 0;
+  const dateDebut = document.getElementById('contrat-debut').value;
+  const dureeMois = parseInt(document.getElementById('contrat-duree').value) || 12;
+  const zone = document.getElementById('contrat-zone').value.trim();
+  const notes = document.getElementById('contrat-notes').value.trim();
+
+  if(!nom || !tel || !dateDebut){
+    alert("Merci de remplir au moins le nom, le téléphone et la date de début.");
+    return;
+  }
+  const dateExpiration = ajouterMois(dateDebut, dureeMois);
+
+  const data = { clientNom: nom, clientTel: tel, formule, montant, dateDebut, dureeMois, dateExpiration, zone, notes };
+
+  if(editingContratId){
+    await updateDoc(doc(db, "contrats", editingContratId), data);
+  } else {
+    await addDoc(collection(db, "contrats"), { ...data, statut: 'actif', createdAt: serverTimestamp() });
+  }
+  fermerFormContrat();
+};
+
+window.renouvelerContrat = async function(id, dureeMois){
+  if(!confirm("Marquer ce contrat comme renouvelé à partir d'aujourd'hui ?")) return;
+  const nouvelleDateDebut = new Date().toISOString().slice(0,10);
+  const nouvelleDateExpiration = ajouterMois(nouvelleDateDebut, dureeMois);
+  await updateDoc(doc(db, "contrats", id), {
+    dateDebut: nouvelleDateDebut,
+    dateExpiration: nouvelleDateExpiration
+  });
+};
+
+window.relancerContrat = function(tel, nom, formule){
+  const message = encodeURIComponent(
+    `Bonjour ${nom}, c'est Perfect Services TNT 👋\n\nVotre contrat d'entretien "${formule}" arrive à échéance. Souhaitez-vous qu'on planifie le renouvellement dès maintenant pour garder votre installation en bon état ?\n\nMerci !`
+  );
+  window.open(`https://wa.me/${formaterNumeroWhatsapp(tel)}?text=${message}`, '_blank');
+};
+
+window.supprimerContrat = async function(id){
+  if(!confirm("Supprimer définitivement ce contrat ?")) return;
+  await deleteDoc(doc(db, "contrats", id));
+};
+
+function joursRestants(dateExpiration){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const exp = new Date(dateExpiration);
+  return Math.round((exp - today) / 86400000);
+}
+
+const qContrats = query(collection(db, "contrats"), orderBy("dateExpiration", "asc"));
+onSnapshot(qContrats, (snapshot) => {
+  const contrats = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  const tbody = document.getElementById('tbody-contrats');
+
+  let actifs = 0, bientot = 0, expires = 0, revenuMensuel = 0;
+
+  if(contrats.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Aucun contrat pour le moment.</td></tr>';
+  } else {
+    tbody.innerHTML = contrats.map(c => {
+      const jr = joursRestants(c.dateExpiration);
+      let statutClass, statutLabel;
+      if(jr < 0){ statutClass='expire'; statutLabel='Expiré'; expires++; }
+      else if(jr <= 30){ statutClass='bientot'; statutLabel=`Dans ${jr} j`; bientot++; }
+      else { statutClass='actif'; statutLabel='Actif'; actifs++; }
+      revenuMensuel += (c.montant||0) / (c.dureeMois||12);
+
+      return `
+        <tr>
+          <td>${c.clientNom}<br><span style="color:var(--text-faint); font-size:11px;">${c.clientTel}${c.zone ? ' · '+c.zone : ''}</span></td>
+          <td>${c.formule}</td>
+          <td>${(c.montant||0).toLocaleString('fr-FR')} FCFA</td>
+          <td>${c.dateExpiration}</td>
+          <td><span class="badge ${statutClass}">${statutLabel}</span></td>
+          <td>
+            <a href="#" onclick="event.preventDefault(); relancerContrat('${c.clientTel}','${c.clientNom.replace(/'/g,"\\'")}','${c.formule}')" style="color:#5fd68a; font-size:12px; font-weight:700;">💬 Relancer</a><br>
+            <a href="#" onclick="event.preventDefault(); renouvelerContrat('${c.id}', ${c.dureeMois||12})" style="color:var(--gold-1); font-size:12px;">✅ Renouvelé</a>
+            <a href="#" onclick="event.preventDefault(); supprimerContrat('${c.id}')" style="color:var(--text-faint); font-size:12px; margin-left:6px;">🗑</a>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('stat-contrats-actifs').textContent = actifs;
+  document.getElementById('stat-contrats-bientot').textContent = bientot;
+  document.getElementById('stat-contrats-expires').textContent = expires;
+  document.getElementById('stat-contrats-revenu').textContent = Math.round(revenuMensuel).toLocaleString('fr-FR') + ' FCFA';
+
+  // Alerte sidebar + dashboard
+  const urgents = bientot + expires;
+  const navBadge = document.getElementById('nav-contrats-badge');
+  if(urgents > 0){
+    navBadge.style.display = 'inline-block';
+    navBadge.textContent = urgents;
+  } else {
+    navBadge.style.display = 'none';
+  }
+
+  const dashAlert = document.getElementById('dash-contrats-alert');
+  const dashAlertText = document.getElementById('dash-contrats-alert-text');
+  if(urgents > 0){
+    dashAlert.style.display = 'block';
+    dashAlertText.textContent = `${expires > 0 ? expires + ' expiré(s), ' : ''}${bientot} à renouveler dans les 30 prochains jours. Cliquez pour voir le détail et relancer sur WhatsApp.`;
+  } else {
+    dashAlert.style.display = 'none';
+  }
+});
 
 window.creerIntervention = async function(){
   const nom = document.getElementById('in-nom').value.trim();
