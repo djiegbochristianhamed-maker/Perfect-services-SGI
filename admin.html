@@ -492,7 +492,7 @@
       <h3>Tous les contrats</h3>
       <table id="table-contrats">
         <thead>
-          <tr><th>Client</th><th>Formule</th><th>Montant</th><th>Expire le</th><th>Statut</th><th>Action</th></tr>
+          <tr><th>Client</th><th>Formule</th><th>Montant</th><th>Expire le</th><th>Statut</th><th>Signature</th><th>Action</th></tr>
         </thead>
         <tbody id="tbody-contrats">
           <tr><td colspan="6" class="empty">Chargement...</td></tr>
@@ -911,6 +911,87 @@ function formaterNumeroWhatsapp(tel){
 
 // ================= GESTION DES CONTRATS DE MAINTENANCE =================
 let editingContratId = null;
+let cacheContrats = [];
+
+function genererPdfContrat(data){
+  const { jsPDF } = window.jspdf;
+  const docPdf = new jsPDF();
+
+  docPdf.setFillColor(13,13,13);
+  docPdf.rect(0, 0, 210, 32, 'F');
+  docPdf.setTextColor(212,175,55);
+  docPdf.setFontSize(18);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("PERFECT SERVICES TNT", 14, 15);
+  docPdf.setFontSize(9);
+  docPdf.setFont(undefined, 'normal');
+  docPdf.text("Contrat de maintenance — Formule " + data.formule, 14, 23);
+
+  docPdf.setTextColor(30,30,30);
+  let y = 44;
+  const ligne = (label, valeur) => {
+    docPdf.setFont(undefined, 'bold');
+    docPdf.setFontSize(10);
+    docPdf.text(label, 14, y);
+    docPdf.setFont(undefined, 'normal');
+    docPdf.text(String(valeur || '—'), 80, y);
+    y += 8;
+  };
+
+  docPdf.setFontSize(13);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("Client", 14, y);
+  y += 8;
+  ligne("Nom", data.clientNom);
+  ligne("Téléphone", data.clientTel);
+  ligne("Zone / Adresse", data.zone);
+
+  y += 4;
+  docPdf.setFontSize(13);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("Détails du contrat", 14, y);
+  y += 8;
+  ligne("Formule", data.formule);
+  ligne("Visites incluses / an", data.visitesParAn || '—');
+  ligne("Date de début", data.dateDebut);
+  ligne("Date d'expiration", data.dateExpiration);
+  if(data.notes) ligne("Notes", data.notes);
+
+  y += 6;
+  docPdf.setFillColor(240,216,120);
+  docPdf.rect(14, y-6, 182, 20, 'F');
+  docPdf.setTextColor(30,30,30);
+  docPdf.setFontSize(11);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("MONTANT ANNUEL :", 18, y+4);
+  docPdf.setFontSize(13);
+  docPdf.text((data.montant||0).toLocaleString('fr-FR') + " FCFA", 140, y+4);
+  y += 26;
+
+  docPdf.setTextColor(90,90,90);
+  docPdf.setFontSize(9);
+  docPdf.setFont(undefined, 'italic');
+  docPdf.text("Ce contrat couvre la main-d'œuvre et le déplacement pour les visites prévues.", 14, y, { maxWidth: 182 });
+  y += 6;
+  docPdf.text("Les pièces et matériaux remplacés restent à la charge du client, sauf mention contraire.", 14, y, { maxWidth: 182 });
+  y += 14;
+
+  if(data.accepteAt){
+    docPdf.setTextColor(30,120,60);
+    docPdf.setFont(undefined, 'bold');
+    docPdf.text("✓ Contrat accepté par le client le " + new Date(data.accepteAt).toLocaleDateString('fr-FR'), 14, y);
+  } else {
+    docPdf.setTextColor(180,120,20);
+    docPdf.setFont(undefined, 'bold');
+    docPdf.text("⏳ En attente de l'acceptation du client", 14, y);
+  }
+
+  docPdf.setFontSize(8);
+  docPdf.setTextColor(150,150,150);
+  docPdf.text("Document généré automatiquement — Perfect Services TNT (copie interne)", 14, 285);
+
+  return docPdf;
+}
 
 window.ouvrirFormContrat = function(){
   editingContratId = null;
@@ -958,6 +1039,8 @@ window.enregistrerContrat = async function(){
   const nom = document.getElementById('contrat-nom').value.trim();
   const tel = document.getElementById('contrat-tel').value.trim();
   const formule = document.getElementById('contrat-formule').value;
+  const formuleOpt = document.getElementById('contrat-formule').options[document.getElementById('contrat-formule').selectedIndex];
+  const visitesParAn = formuleOpt.dataset.visites || '';
   const montant = parseFloat(document.getElementById('contrat-montant').value) || 0;
   const dateDebut = document.getElementById('contrat-debut').value;
   const dureeMois = parseInt(document.getElementById('contrat-duree').value) || 12;
@@ -970,12 +1053,12 @@ window.enregistrerContrat = async function(){
   }
   const dateExpiration = ajouterMois(dateDebut, dureeMois);
 
-  const data = { clientNom: nom, clientTel: tel, formule, montant, dateDebut, dureeMois, dateExpiration, zone, notes };
+  const data = { clientNom: nom, clientTel: tel, formule, visitesParAn, montant, dateDebut, dureeMois, dateExpiration, zone, notes };
 
   if(editingContratId){
     await updateDoc(doc(db, "contrats", editingContratId), data);
   } else {
-    await addDoc(collection(db, "contrats"), { ...data, statut: 'actif', createdAt: serverTimestamp() });
+    await addDoc(collection(db, "contrats"), { ...data, statut: 'actif', statutClient: 'en_attente', createdAt: serverTimestamp() });
   }
   fermerFormContrat();
 };
@@ -990,11 +1073,26 @@ window.renouvelerContrat = async function(id, dureeMois){
   });
 };
 
-window.relancerContrat = function(tel, nom, formule){
+window.envoyerContratClient = function(id, tel, nom, formule){
+  const lien = `https://djiegbochristianhamed-maker.github.io/Perfect-services-SGI/contrat-confirmation.html?id=${id}`;
+  const message = encodeURIComponent(
+    `Bonjour ${nom}, c'est Perfect Services TNT 👋\n\nVoici votre contrat d'entretien "${formule}" : ${lien}\n\nOuvrez le lien, un seul clic suffit pour l'accepter — vous recevrez automatiquement votre copie PDF.\n\nMerci !`
+  );
+  window.open(`https://wa.me/${formaterNumeroWhatsapp(tel)}?text=${message}`, '_blank');
+};
+
+window.relancerRenouvellement = function(tel, nom, formule){
   const message = encodeURIComponent(
     `Bonjour ${nom}, c'est Perfect Services TNT 👋\n\nVotre contrat d'entretien "${formule}" arrive à échéance. Souhaitez-vous qu'on planifie le renouvellement dès maintenant pour garder votre installation en bon état ?\n\nMerci !`
   );
   window.open(`https://wa.me/${formaterNumeroWhatsapp(tel)}?text=${message}`, '_blank');
+};
+
+window.voirPdfContrat = function(id){
+  const data = cacheContrats.find(c => c.id === id);
+  if(!data){ alert("Contrat introuvable."); return; }
+  const docPdf = genererPdfContrat(data);
+  docPdf.output('dataurlnewwindow');
 };
 
 window.supprimerContrat = async function(id){
@@ -1011,12 +1109,13 @@ function joursRestants(dateExpiration){
 const qContrats = query(collection(db, "contrats"), orderBy("dateExpiration", "asc"));
 onSnapshot(qContrats, (snapshot) => {
   const contrats = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  cacheContrats = contrats;
   const tbody = document.getElementById('tbody-contrats');
 
   let actifs = 0, bientot = 0, expires = 0, revenuMensuel = 0;
 
   if(contrats.length === 0){
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Aucun contrat pour le moment.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucun contrat pour le moment.</td></tr>';
   } else {
     tbody.innerHTML = contrats.map(c => {
       const jr = joursRestants(c.dateExpiration);
@@ -1026,6 +1125,14 @@ onSnapshot(qContrats, (snapshot) => {
       else { statutClass='actif'; statutLabel='Actif'; actifs++; }
       revenuMensuel += (c.montant||0) / (c.dureeMois||12);
 
+      const signatureHtml = c.statutClient === 'accepte'
+        ? `<span class="badge actif">✅ Accepté${c.accepteAt ? ' le '+new Date(c.accepteAt).toLocaleDateString('fr-FR') : ''}</span>`
+        : `<span class="badge bientot">⏳ En attente</span>`;
+
+      const actionEnvoi = c.statutClient === 'accepte'
+        ? `<a href="#" onclick="event.preventDefault(); relancerRenouvellement('${c.clientTel}','${c.clientNom.replace(/'/g,"\\'")}','${c.formule}')" style="color:#5fd68a; font-size:12px; font-weight:700;">💬 Relancer renouvellement</a>`
+        : `<a href="#" onclick="event.preventDefault(); envoyerContratClient('${c.id}','${c.clientTel}','${c.clientNom.replace(/'/g,"\\'")}','${c.formule}')" style="color:#5fd68a; font-size:12px; font-weight:700;">📤 Envoyer pour signature</a>`;
+
       return `
         <tr>
           <td>${c.clientNom}<br><span style="color:var(--text-faint); font-size:11px;">${c.clientTel}${c.zone ? ' · '+c.zone : ''}</span></td>
@@ -1033,10 +1140,12 @@ onSnapshot(qContrats, (snapshot) => {
           <td>${(c.montant||0).toLocaleString('fr-FR')} FCFA</td>
           <td>${c.dateExpiration}</td>
           <td><span class="badge ${statutClass}">${statutLabel}</span></td>
+          <td>${signatureHtml}</td>
           <td>
-            <a href="#" onclick="event.preventDefault(); relancerContrat('${c.clientTel}','${c.clientNom.replace(/'/g,"\\'")}','${c.formule}')" style="color:#5fd68a; font-size:12px; font-weight:700;">💬 Relancer</a><br>
-            <a href="#" onclick="event.preventDefault(); renouvelerContrat('${c.id}', ${c.dureeMois||12})" style="color:var(--gold-1); font-size:12px;">✅ Renouvelé</a>
-            <a href="#" onclick="event.preventDefault(); supprimerContrat('${c.id}')" style="color:var(--text-faint); font-size:12px; margin-left:6px;">🗑</a>
+            ${actionEnvoi}<br>
+            <a href="#" onclick="event.preventDefault(); voirPdfContrat('${c.id}')" style="color:var(--gold-1); font-size:12px;">📄 Ma copie PDF</a>
+            <a href="#" onclick="event.preventDefault(); renouvelerContrat('${c.id}', ${c.dureeMois||12})" style="color:var(--gold-1); font-size:12px; margin-left:6px;">✅ Renouvelé</a><br>
+            <a href="#" onclick="event.preventDefault(); supprimerContrat('${c.id}')" style="color:var(--text-faint); font-size:12px;">🗑 Supprimer</a>
           </td>
         </tr>
       `;

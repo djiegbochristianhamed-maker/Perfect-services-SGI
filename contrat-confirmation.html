@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perfect Services - Confirmation de contrat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0a08;
+    --gold-1:#d4af37;
+    --gold-2:#f5d576;
+    --gold-gradient: linear-gradient(135deg, #b8912e 0%, #f5d576 45%, #d4af37 65%, #8a6d1f 100%);
+    --green:#1f8a4c;
+    --text:#f4f0e6;
+    --text-dim:#a89a7a;
+    --font-display:'Cormorant Garamond', serif;
+    --font-body:'Inter', 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:var(--font-body);
+    background:
+      radial-gradient(ellipse 700px 400px at 50% -10%, rgba(212,175,55,0.08), transparent),
+      var(--bg);
+    color:var(--text);
+    display:flex; justify-content:center; align-items:flex-start;
+    min-height:100vh; padding:24px 16px;
+  }
+  .phone{ width:100%; max-width:400px; }
+  .header{ display:flex; align-items:center; gap:10px; margin-bottom:22px; }
+  .logo-circle{
+    width:42px; height:42px; border-radius:50%;
+    border:1.5px solid var(--gold-1);
+    box-shadow:0 0 0 3px rgba(212,175,55,0.08);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:18px; color:var(--gold-1);
+    background:radial-gradient(circle at 30% 30%, #2a2210, #0a0a0a);
+    flex-shrink:0; overflow:hidden;
+  }
+  .header h2{ font-family:var(--font-display); font-size:19px; font-weight:700; letter-spacing:.3px; }
+  .greeting{ text-align:center; margin-bottom:22px; }
+  .greeting .hello{ font-size:13px; color:var(--text-dim); letter-spacing:.5px; }
+  .greeting .name{
+    font-family:var(--font-display); font-size:26px; font-weight:700;
+    background:var(--gold-gradient); -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .card{
+    background:#faf7f0; color:#1a1a1a; border-radius:16px; padding:22px; margin-bottom:20px;
+    box-shadow:0 12px 40px rgba(0,0,0,0.4);
+  }
+  .card .titre{
+    font-family:var(--font-display); color:#a0741a; font-weight:700; font-size:16px; margin-bottom:16px;
+    display:flex; align-items:center; gap:6px; letter-spacing:.3px;
+  }
+  .row{
+    display:flex; justify-content:space-between; padding:9px 0;
+    border-bottom:1px solid #ece5d3; font-size:13px; gap:12px;
+  }
+  .row:last-child{ border-bottom:none; }
+  .row .k{ color:#8a7a55; flex-shrink:0; }
+  .row .v{ font-weight:600; text-align:right; }
+  .note-box{
+    background:#fdf3d8; border:1px solid #e8cf8a; border-radius:10px;
+    padding:12px 14px; margin-top:14px; font-size:12px; color:#7a5c10; line-height:1.5;
+  }
+  .montant-box{
+    background:linear-gradient(135deg, #fdf6e3, #f7ead0); border-radius:12px; padding:16px; text-align:center; margin-top:16px;
+    border:1px solid #e8cf8a;
+  }
+  .montant-box .lbl{ font-size:11px; color:#9a6f14; font-weight:700; letter-spacing:.6px; }
+  .montant-box .val{ font-family:var(--font-display); font-size:28px; font-weight:700; color:#8a5f0f; }
+  .question{ text-align:center; margin:22px 0 16px 0; }
+  .question h3{ font-family:var(--font-display); font-size:20px; font-weight:700; }
+  .question p{ font-size:12px; color:var(--text-dim); margin-top:4px; }
+  .btn{
+    width:100%; padding:17px; border-radius:12px; border:none;
+    font-size:15px; font-weight:700; cursor:pointer; margin-bottom:12px;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    color:#fff; transition:.15s; letter-spacing:.2px;
+  }
+  .btn:hover{ transform:translateY(-1px); filter:brightness(1.08); }
+  .btn .sub{ display:block; font-weight:400; font-size:11px; opacity:.9; }
+  .btn-confirmer{ background:linear-gradient(135deg, #2ea363, #1f8a4c); box-shadow:0 6px 20px rgba(31,138,76,0.3); }
+  .btn-pdf{ background:linear-gradient(135deg, #4a4a4a, #2a2a2a); box-shadow:0 6px 20px rgba(0,0,0,0.3); }
+  .state-box{ text-align:center; padding:40px 20px; font-size:14px; color:var(--text-dim); }
+  .result-box{
+    text-align:center; padding:36px 20px; background:linear-gradient(135deg, #161310, #0f0d0a);
+    border-radius:16px; border:1px solid #2e2818;
+  }
+  .result-box .emoji{ font-size:42px; margin-bottom:12px; }
+  .result-box h3{ font-family:var(--font-display); font-size:22px; margin-bottom:8px; }
+  .result-box p{ font-size:13px; color:var(--text-dim); margin-bottom:18px; }
+  .footnote{
+    text-align:center; font-size:11px; color:var(--text-dim); margin-top:14px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="header">
+    <div class="logo-circle"><img src="logo-icon.png" alt="Perfect Services" style="width:100%; height:100%; object-fit:cover; border-radius:50%;"></div>
+    <h2>Perfect Services TNT</h2>
+  </div>
+  <div id="content">
+    <div class="state-box">Chargement de votre contrat...</div>
+  </div>
+</div>
+
+<script type="module">
+import { db, doc, getDoc, updateDoc } from "./firebase-config.js";
+
+const params = new URLSearchParams(window.location.search);
+const id = params.get('id');
+const content = document.getElementById('content');
+let contratData = null;
+
+function genererPdfContrat(data){
+  const { jsPDF } = window.jspdf;
+  const docPdf = new jsPDF();
+
+  docPdf.setFillColor(13,13,13);
+  docPdf.rect(0, 0, 210, 32, 'F');
+  docPdf.setTextColor(212,175,55);
+  docPdf.setFontSize(18);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("PERFECT SERVICES TNT", 14, 15);
+  docPdf.setFontSize(9);
+  docPdf.setFont(undefined, 'normal');
+  docPdf.text("Contrat de maintenance — Formule " + data.formule, 14, 23);
+
+  docPdf.setTextColor(30,30,30);
+  let y = 44;
+  const ligne = (label, valeur) => {
+    docPdf.setFont(undefined, 'bold');
+    docPdf.setFontSize(10);
+    docPdf.text(label, 14, y);
+    docPdf.setFont(undefined, 'normal');
+    docPdf.text(String(valeur || '—'), 80, y);
+    y += 8;
+  };
+
+  docPdf.setFontSize(13);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("Client", 14, y);
+  y += 8;
+  ligne("Nom", data.clientNom);
+  ligne("Téléphone", data.clientTel);
+  ligne("Zone / Adresse", data.zone);
+
+  y += 4;
+  docPdf.setFontSize(13);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("Détails du contrat", 14, y);
+  y += 8;
+  ligne("Formule", data.formule);
+  ligne("Visites incluses / an", data.visitesParAn || '—');
+  ligne("Date de début", data.dateDebut);
+  ligne("Date d'expiration", data.dateExpiration);
+  if(data.notes) ligne("Notes", data.notes);
+
+  y += 6;
+  docPdf.setFillColor(240,216,120);
+  docPdf.rect(14, y-6, 182, 20, 'F');
+  docPdf.setTextColor(30,30,30);
+  docPdf.setFontSize(11);
+  docPdf.setFont(undefined, 'bold');
+  docPdf.text("MONTANT ANNUEL :", 18, y+4);
+  docPdf.setFontSize(13);
+  docPdf.text((data.montant||0).toLocaleString('fr-FR') + " FCFA", 140, y+4);
+  y += 26;
+
+  docPdf.setTextColor(90,90,90);
+  docPdf.setFontSize(9);
+  docPdf.setFont(undefined, 'italic');
+  docPdf.text("Ce contrat couvre la main-d'œuvre et le déplacement pour les visites prévues.", 14, y, { maxWidth: 182 });
+  y += 6;
+  docPdf.text("Les pièces et matériaux remplacés restent à la charge du client, sauf mention contraire.", 14, y, { maxWidth: 182 });
+  y += 14;
+
+  if(data.accepteAt){
+    docPdf.setTextColor(30,120,60);
+    docPdf.setFont(undefined, 'bold');
+    docPdf.text("✓ Contrat accepté par le client le " + new Date(data.accepteAt).toLocaleDateString('fr-FR'), 14, y);
+  }
+
+  docPdf.setFontSize(8);
+  docPdf.setTextColor(150,150,150);
+  docPdf.text("Document généré automatiquement — Perfect Services TNT", 14, 285);
+
+  return docPdf;
+}
+
+window.telechargerPdf = function(){
+  const docPdf = genererPdfContrat(contratData);
+  docPdf.save(`Contrat-${contratData.clientNom}-${contratData.formule}.pdf`);
+};
+
+async function accepter(){
+  await updateDoc(doc(db, "contrats", id), {
+    statutClient: 'accepte',
+    accepteAt: new Date().toISOString()
+  });
+  contratData.accepteAt = new Date().toISOString();
+  afficherResultat();
+  // Téléchargement automatique du PDF — un seul clic suffit au client
+  setTimeout(() => window.telechargerPdf(), 400);
+}
+window.accepter = accepter;
+
+function afficherResultat(){
+  content.innerHTML = `
+    <div class="result-box">
+      <div class="emoji">✅</div>
+      <h3>Contrat accepté</h3>
+      <p>Merci ! Perfect Services TNT a bien reçu votre accord. Conservez votre copie PDF ci-dessous.</p>
+      <button class="btn btn-pdf" onclick="telechargerPdf()">📄&nbsp; Télécharger mon contrat en PDF</button>
+    </div>
+  `;
+}
+
+async function charger(){
+  if(!id){
+    content.innerHTML = '<div class="state-box">Lien invalide ou incomplet.</div>';
+    return;
+  }
+  const snap = await getDoc(doc(db, "contrats", id));
+  if(!snap.exists()){
+    content.innerHTML = '<div class="state-box">Ce contrat est introuvable.</div>';
+    return;
+  }
+  contratData = snap.data();
+
+  if(contratData.statutClient === 'accepte' && contratData.accepteAt){
+    afficherResultat();
+    return;
+  }
+
+  content.innerHTML = `
+    <div class="greeting">
+      <div class="hello">Bonjour</div>
+      <div class="name">${contratData.clientNom || ''}</div>
+    </div>
+
+    <div class="card">
+      <div class="titre">📋 VOTRE CONTRAT DE MAINTENANCE</div>
+      <div class="row"><span class="k">Formule</span><span class="v">${contratData.formule || '—'}</span></div>
+      <div class="row"><span class="k">Visites incluses / an</span><span class="v">${contratData.visitesParAn || '—'}</span></div>
+      <div class="row"><span class="k">Date de début</span><span class="v">${contratData.dateDebut || '—'}</span></div>
+      <div class="row"><span class="k">Date d'expiration</span><span class="v">${contratData.dateExpiration || '—'}</span></div>
+      <div class="row"><span class="k">Zone</span><span class="v">${contratData.zone || '—'}</span></div>
+
+      <div class="note-box">
+        ℹ️ Ce contrat couvre la main-d'œuvre et le déplacement pour les visites prévues. Les pièces et matériaux remplacés restent à la charge du client, sauf mention contraire.
+      </div>
+
+      <div class="montant-box">
+        <div class="lbl">MONTANT ANNUEL</div>
+        <div class="val">${(contratData.montant||0).toLocaleString('fr-FR')} FCFA</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <h3>Acceptez-vous ce contrat ?</h3>
+      <p>En confirmant, vous validez les conditions ci-dessus</p>
+    </div>
+
+    <button class="btn btn-confirmer" onclick="accepter()">
+      ✅&nbsp; J'ACCEPTE CE CONTRAT<span class="sub">1 clic : confirmation + PDF téléchargé automatiquement</span>
+    </button>
+
+    <div class="footnote">🛡️ Vous pourrez toujours retélécharger votre copie depuis ce même lien.</div>
+  `;
+}
+charger();
+</script>
+</body>
+</html>
