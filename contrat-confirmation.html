@@ -82,9 +82,24 @@
     color:#fff; transition:.15s; letter-spacing:.2px;
   }
   .btn:hover{ transform:translateY(-1px); filter:brightness(1.08); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; filter:grayscale(0.4); transform:none; }
   .btn .sub{ display:block; font-weight:400; font-size:11px; opacity:.9; }
   .btn-confirmer{ background:linear-gradient(135deg, #2ea363, #1f8a4c); box-shadow:0 6px 20px rgba(31,138,76,0.3); }
   .btn-pdf{ background:linear-gradient(135deg, #4a4a4a, #2a2a2a); box-shadow:0 6px 20px rgba(0,0,0,0.3); }
+  .sig-card{
+    background:#faf7f0; border-radius:16px; padding:18px; margin-bottom:16px;
+    box-shadow:0 12px 40px rgba(0,0,0,0.4);
+  }
+  .sig-card .titre{
+    font-family:var(--font-display); color:#a0741a; font-weight:700; font-size:15px; margin-bottom:10px;
+  }
+  #sig-canvas{
+    width:100%; height:150px; background:#fff; border-radius:10px;
+    border:1.5px dashed #d8c99a; touch-action:none; cursor:crosshair; display:block;
+  }
+  .sig-actions{ display:flex; justify-content:space-between; align-items:center; margin-top:8px; }
+  .sig-hint{ font-size:11px; color:#9a8a60; }
+  .sig-clear{ font-size:12px; color:#a0741a; background:none; border:none; font-weight:700; cursor:pointer; }
   .state-box{ text-align:center; padding:40px 20px; font-size:14px; color:var(--text-dim); }
   .result-box{
     text-align:center; padding:36px 20px; background:linear-gradient(135deg, #161310, #0f0d0a);
@@ -185,6 +200,17 @@ function genererPdfContrat(data){
     docPdf.setTextColor(30,120,60);
     docPdf.setFont(undefined, 'bold');
     docPdf.text("✓ Contrat accepté par le client le " + new Date(data.accepteAt).toLocaleDateString('fr-FR'), 14, y);
+    y += 8;
+    if(data.signatureData){
+      docPdf.setTextColor(90,90,90);
+      docPdf.setFontSize(8);
+      docPdf.setFont(undefined, 'normal');
+      docPdf.text("Signature :", 14, y);
+      try{
+        docPdf.addImage(data.signatureData, 'PNG', 14, y+3, 60, 25);
+      }catch(e){}
+      y += 32;
+    }
   }
 
   docPdf.setFontSize(8);
@@ -199,12 +225,69 @@ window.telechargerPdf = function(){
   docPdf.save(`Contrat-${contratData.clientNom}-${contratData.formule}.pdf`);
 };
 
+let signatureCanvas, signatureCtx, hasSignature = false, isDrawing = false;
+
+function initSignaturePad(){
+  signatureCanvas = document.getElementById('sig-canvas');
+  if(!signatureCanvas) return;
+  const rect = signatureCanvas.getBoundingClientRect();
+  const ratio = window.devicePixelRatio || 1;
+  signatureCanvas.width = rect.width * ratio;
+  signatureCanvas.height = rect.height * ratio;
+  signatureCtx = signatureCanvas.getContext('2d');
+  signatureCtx.scale(ratio, ratio);
+  signatureCtx.strokeStyle = '#1a1a1a';
+  signatureCtx.lineWidth = 2.2;
+  signatureCtx.lineCap = 'round';
+  signatureCtx.lineJoin = 'round';
+
+  const getPos = (e) => {
+    const r = signatureCanvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+  const start = (e) => {
+    isDrawing = true;
+    const p = getPos(e);
+    signatureCtx.beginPath();
+    signatureCtx.moveTo(p.x, p.y);
+  };
+  const move = (e) => {
+    if(!isDrawing) return;
+    const p = getPos(e);
+    signatureCtx.lineTo(p.x, p.y);
+    signatureCtx.stroke();
+    if(!hasSignature){
+      hasSignature = true;
+      document.getElementById('btn-accepter').disabled = false;
+    }
+  };
+  const end = () => { isDrawing = false; };
+
+  signatureCanvas.addEventListener('pointerdown', start);
+  signatureCanvas.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+}
+
+window.effacerSignature = function(){
+  if(!signatureCtx) return;
+  signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+  hasSignature = false;
+  document.getElementById('btn-accepter').disabled = true;
+};
+
 async function accepter(){
+  if(!hasSignature){
+    alert("Merci de signer avant de confirmer.");
+    return;
+  }
+  const signatureData = signatureCanvas.toDataURL('image/png');
   await updateDoc(doc(db, "contrats", id), {
     statutClient: 'accepte',
-    accepteAt: new Date().toISOString()
+    accepteAt: new Date().toISOString(),
+    signatureData
   });
   contratData.accepteAt = new Date().toISOString();
+  contratData.signatureData = signatureData;
   afficherResultat();
   // Téléchargement automatique du PDF — un seul clic suffit au client
   setTimeout(() => window.telechargerPdf(), 400);
@@ -265,15 +348,25 @@ async function charger(){
 
     <div class="question">
       <h3>Acceptez-vous ce contrat ?</h3>
-      <p>En confirmant, vous validez les conditions ci-dessus</p>
+      <p>Signez ci-dessous puis confirmez</p>
     </div>
 
-    <button class="btn btn-confirmer" onclick="accepter()">
-      ✅&nbsp; J'ACCEPTE CE CONTRAT<span class="sub">1 clic : confirmation + PDF téléchargé automatiquement</span>
+    <div class="sig-card">
+      <div class="titre">✍️ Votre signature</div>
+      <canvas id="sig-canvas"></canvas>
+      <div class="sig-actions">
+        <span class="sig-hint">Signez avec le doigt ou la souris</span>
+        <button type="button" class="sig-clear" onclick="effacerSignature()">Effacer</button>
+      </div>
+    </div>
+
+    <button class="btn btn-confirmer" id="btn-accepter" onclick="accepter()" disabled>
+      ✅&nbsp; J'ACCEPTE CE CONTRAT<span class="sub">Signez d'abord ci-dessus — le PDF se télécharge automatiquement</span>
     </button>
 
     <div class="footnote">🛡️ Vous pourrez toujours retélécharger votre copie depuis ce même lien.</div>
   `;
+  initSignaturePad();
 }
 charger();
 </script>
