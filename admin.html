@@ -442,7 +442,10 @@
   <div class="page" id="page-contrats">
     <div class="page-header">
       <h1>Contrats de maintenance</h1>
-      <button class="btn" onclick="ouvrirFormContrat()">+ Nouveau contrat</button>
+      <div style="display:flex; gap:10px;">
+        <button class="btn" onclick="ouvrirFormContrat()">+ Nouveau contrat</button>
+        <button class="btn btn-outline" style="color:var(--red); border-color:var(--red);" onclick="reinitialiserContrats()">🗑️ Réinitialiser</button>
+      </div>
     </div>
 
     <div class="stats-row">
@@ -1599,6 +1602,17 @@ window.reinitialiserTechniciens = async function(){
   snap.forEach(d => suppressions.push(deleteDoc(doc(db, "techniciens", d.id))));
   await Promise.all(suppressions);
   alert("Tous les techniciens ont été supprimés.");
+};
+
+window.reinitialiserContrats = async function(){
+  const confirmation = prompt("⚠️ Ceci va supprimer TOUS les contrats (irréversible) — pratique pour repartir de zéro après des tests. Tape RESET pour confirmer :");
+  if(confirmation !== 'RESET') return;
+
+  const snap = await getDocs(collection(db, "contrats"));
+  const suppressions = [];
+  snap.forEach(d => suppressions.push(deleteDoc(doc(db, "contrats", d.id))));
+  await Promise.all(suppressions);
+  alert("Tous les contrats ont été supprimés.");
 };
 
 
